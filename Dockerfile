@@ -2,7 +2,7 @@
 FROM node:18
 
 # Install dependencies for SF CLI
-RUN apk add --no-cache bash curl git
+RUN apt-get update && apt-get install -y bash curl git && rm -rf /var/lib/apt/lists/*
 
 # Install Salesforce CLI (sf)
 RUN npm install -g @salesforce/cli
