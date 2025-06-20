@@ -13,7 +13,8 @@ pipeline {
         stage('Run Salesforce CLI') {
             steps {
                 script {
-                    docker.image('salesforce-cli:latest').inside {
+                    docker.image('salesforce-cli:latest').inside("-v ${env.WORKSPACE}:/workspace -w /workspace") {
+                    //docker.image('salesforce-cli:latest').inside {
                         // Example SF CLI command
                         sh 'sf --version'
                         
