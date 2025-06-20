@@ -1,6 +1,6 @@
 pipeline {
     agent any
-    
+
     stages {
         stage('Build Docker Image') {
             steps {
@@ -9,15 +9,17 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Run Salesforce CLI') {
             steps {
                 script {
-                    // Fix Windows path for Docker volume mount
+                    // Replace backslashes with forward slashes for Docker on Windows
                     def workspacePath = env.WORKSPACE.replace('\\', '/')
-                    docker.image('salesforce-cli:latest').inside("-v ${env.WORKSPACE}:/workspace") {
-                        sh 'sf --version'
-                    }
+
+                    // Explicitly run docker run with volume and working directory in Linux style
+                    bat """
+                    docker run --rm -v ${workspacePath}:/workspace -w /workspace salesforce-cli:latest sf --version
+                    """
                 }
             }
         }
