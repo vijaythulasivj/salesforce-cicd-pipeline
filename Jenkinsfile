@@ -15,7 +15,7 @@ pipeline {
                 script {
                     // Fix Windows path for Docker volume mount
                     def workspacePath = env.WORKSPACE.replace('\\', '/')
-                    docker.image('salesforce-cli:latest').inside("-v ${workspacePath}:/workspace -w /workspace") {
+                    docker.image('salesforce-cli:latest').inside("-v ${env.WORKSPACE}:/workspace") {
                         sh 'sf --version'
                     }
                 }
