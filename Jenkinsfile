@@ -13,14 +13,11 @@ pipeline {
         stage('Run Salesforce CLI') {
             steps {
                 script {
-                    docker.image('salesforce-cli:latest').inside("-v ${env.WORKSPACE}:/workspace -w /workspace") {
-                    //docker.image('salesforce-cli:latest').inside {
-                        // Example SF CLI command
+                    // Fix Windows path for Docker volume mount by replacing backslashes with slashes
+                    def workspacePath = env.WORKSPACE.replace('\\', '/')
+                    docker.image('salesforce-cli:latest').inside("-v ${workspacePath}:/workspace -w /workspace") {
                         sh 'sf --version'
-                        
-                        // Add your SF CLI commands here, e.g.:
-                        // sh 'sf auth login --use-device-code'
-                        // sh 'sf project deploy start --target-org mySandboxAlias'
+                        // Add your SF CLI commands here
                     }
                 }
             }
