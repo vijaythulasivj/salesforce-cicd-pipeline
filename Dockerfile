@@ -1,5 +1,5 @@
 # Use an official lightweight node image as base (SF CLI is Node-based)
-FROM node:18-alpine
+FROM node:18
 
 # Install dependencies for SF CLI
 RUN apk add --no-cache bash curl git
