@@ -55,7 +55,7 @@ pipeline {
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'SF_JWT_KEY_PATH')]) {
 
                         // Copy private key into workspace so it’s visible inside Docker
-                        bat "copy %SF_JWT_KEY_PATH% ${workspacePath}\\sf-jwt.key"
+                        copy "%SF_JWT_KEY_PATH%" "${workspacePath}\\sf-jwt.key"
 
                         // Authenticate via JWT inside Docker
                         bat """
