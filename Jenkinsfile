@@ -50,30 +50,32 @@ pipeline {
             steps {
                 script {
                     def workspacePath = env.WORKSPACE.replace('\\', '/')
-        
+
                     // Inject private key into workspace
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'SF_JWT_KEY_PATH')]) {
-        
-                        // Copy the private key into workspace
+
+                        // Copy private key into workspace so it can be mounted into Docker
                         bat """copy "%SF_JWT_KEY_PATH%" "${workspacePath}\\sf-jwt.key" """
-        
-                        // Run Docker with env vars passed inside the container instead of string interpolation
-                        withEnv(["SF_JWT_KEY_FILE=sf-jwt.key"]) {
-                            bat '''
-                            docker run --rm -v %WORKSPACE%:/workspace -w /workspace salesforce-cli:latest ^
-                                sf auth jwt:grant ^
-                                --client-id %SF_CONSUMER_KEY% ^
-                                --jwt-key-file %SF_JWT_KEY_FILE% ^
-                                --username %SF_USERNAME% ^
-                                --set-default ^
-                                --instance-url https://login.salesforce.com
-                            '''
-                        }
+
+                        // Authenticate to Salesforce using secrets passed as Docker env vars (avoids masking issues)
+                        bat """
+                        docker run --rm ^
+                            -v "${workspacePath}:/workspace" ^
+                            -w /workspace ^
+                            -e SF_USERNAME=%SF_USERNAME% ^
+                            -e SF_CONSUMER_KEY=%SF_CONSUMER_KEY% ^
+                            salesforce-cli:latest ^
+                            sf auth jwt:grant ^
+                            --client-id %SF_CONSUMER_KEY% ^
+                            --jwt-key-file sf-jwt.key ^
+                            --username %SF_USERNAME% ^
+                            --set-default ^
+                            --instance-url https://login.salesforce.com
+                        """
                     }
                 }
             }
         }
-
 
         stage('Verify Connection') {
             steps {
@@ -82,7 +84,11 @@ pipeline {
 
                     // Run a simple command to verify connection
                     bat """
-                    docker run --rm -v ${workspacePath}:/workspace -w /workspace salesforce-cli:latest sf org list
+                    docker run --rm ^
+                        -v "${workspacePath}:/workspace" ^
+                        -w /workspace ^
+                        salesforce-cli:latest ^
+                        sf org list
                     """
                 }
             }
