@@ -50,33 +50,32 @@ pipeline {
             steps {
                 script {
                     def workspacePath = env.WORKSPACE.replace('\\', '/')
-
-                    // Inject private key into workspace
+        
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'SF_JWT_KEY_PATH')]) {
-
-                        // Copy private key into workspace so it can be mounted into Docker
+        
+                        // Copy private key into workspace
                         bat """copy "%SF_JWT_KEY_PATH%" "${workspacePath}\\sf-jwt.key" """
-
-                        // Authenticate to Salesforce using secrets passed as Docker env vars (avoids masking issues)
+        
+                        // Run Docker with secrets passed in as env vars AND used inside the container
                         bat """
                         docker run --rm ^
                             -v "${workspacePath}:/workspace" ^
                             -w /workspace ^
-                            -e SF_USERNAME=%SF_USERNAME% ^
-                            -e SF_CONSUMER_KEY=%SF_CONSUMER_KEY% ^
+                            -e SF_USERNAME="%SF_USERNAME%" ^
+                            -e SF_CONSUMER_KEY="%SF_CONSUMER_KEY%" ^
+                            -e SF_JWT_KEY_FILE="sf-jwt.key" ^
                             salesforce-cli:latest ^
-                            sf auth jwt:grant ^
-                            --client-id %SF_CONSUMER_KEY% ^
-                            --jwt-key-file sf-jwt.key ^
-                            --username %SF_USERNAME% ^
-                            --set-default ^
-                            --instance-url https://login.salesforce.com
+                            cmd /c "sf auth jwt:grant ^
+                                --client-id %SF_CONSUMER_KEY% ^
+                                --jwt-key-file %SF_JWT_KEY_FILE% ^
+                                --username %SF_USERNAME% ^
+                                --set-default ^
+                                --instance-url https://login.salesforce.com"
                         """
                     }
                 }
             }
         }
-
         stage('Verify Connection') {
             steps {
                 script {
