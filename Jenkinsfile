@@ -54,17 +54,17 @@ pipeline {
                     // Inject private key file as temp file inside Jenkins agent
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'SF_JWT_KEY_PATH')]) {
 
-                        // Copy private key into workspace so it’s visible inside Docker
-                        copy "%SF_JWT_KEY_PATH%" "${workspacePath}\\sf-jwt.key"
+                        // ✅ Corrected: Use `bat` to execute Windows `copy` command
+                        bat """copy "%SF_JWT_KEY_PATH%" "${workspacePath}\\sf-jwt.key" """
 
                         // Authenticate via JWT inside Docker
                         bat """
                         docker run --rm -v ${workspacePath}:/workspace -w /workspace salesforce-cli:latest sf auth jwt:grant ^
-                        --client-id ${SF_CONSUMER_KEY} ^
-                        --jwt-key-file sf-jwt.key ^
-                        --username ${SF_USERNAME} ^
-                        --set-default ^
-                        --instance-url https://login.salesforce.com
+                            --client-id ${SF_CONSUMER_KEY} ^
+                            --jwt-key-file sf-jwt.key ^
+                            --username ${SF_USERNAME} ^
+                            --set-default ^
+                            --instance-url https://login.salesforce.com
                         """
                     }
                 }
