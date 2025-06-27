@@ -33,8 +33,8 @@ pipeline {
 
     environment {
         // Secret text credentials (configured in Jenkins)
-        SF_USERNAME = credentials('thulasiram.srinivasan478@agentforce.com')
-        SF_CONSUMER_KEY = credentials('sf-jwt-private-key')
+        SF_USERNAME = credentials('sf-username')
+        SF_CONSUMER_KEY = credentials('sf-consumer-key')
     }
 
     stages {
