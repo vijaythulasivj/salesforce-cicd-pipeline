@@ -64,12 +64,7 @@ pipeline {
                             -e SF_USERNAME=%SF_USERNAME% ^
                             -e SF_CONSUMER_KEY=%SF_CONSUMER_KEY% ^
                             salesforce-cli:latest ^
-                            sf auth jwt:grant ^
-                                --client-id %SF_CONSUMER_KEY% ^
-                                --jwt-key-file sf-jwt.key ^
-                                --username %SF_USERNAME% ^
-                                --set-default ^
-                                --instance-url https://login.salesforce.com
+                            sh -c "sf auth jwt:grant --client-id \\\"\$SF_CONSUMER_KEY\\\" --jwt-key-file sf-jwt.key --username \\\"\$SF_USERNAME\\\" --set-default --instance-url https://login.salesforce.com"
                         """
                     }
                 }
