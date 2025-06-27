@@ -50,26 +50,30 @@ pipeline {
             steps {
                 script {
                     def workspacePath = env.WORKSPACE.replace('\\', '/')
-
-                    // Inject private key file as temp file inside Jenkins agent
+        
+                    // Inject private key into workspace
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'SF_JWT_KEY_PATH')]) {
-
-                        // ✅ Corrected: Use `bat` to execute Windows `copy` command
+        
+                        // Copy the private key into workspace
                         bat """copy "%SF_JWT_KEY_PATH%" "${workspacePath}\\sf-jwt.key" """
-
-                        // Authenticate via JWT inside Docker
-                        bat """
-                        docker run --rm -v ${workspacePath}:/workspace -w /workspace salesforce-cli:latest sf auth jwt:grant ^
-                            --client-id ${SF_CONSUMER_KEY} ^
-                            --jwt-key-file sf-jwt.key ^
-                            --username ${SF_USERNAME} ^
-                            --set-default ^
-                            --instance-url https://login.salesforce.com
-                        """
+        
+                        // Run Docker with env vars passed inside the container instead of string interpolation
+                        withEnv(["SF_JWT_KEY_FILE=sf-jwt.key"]) {
+                            bat '''
+                            docker run --rm -v %WORKSPACE%:/workspace -w /workspace salesforce-cli:latest ^
+                                sf auth jwt:grant ^
+                                --client-id %SF_CONSUMER_KEY% ^
+                                --jwt-key-file %SF_JWT_KEY_FILE% ^
+                                --username %SF_USERNAME% ^
+                                --set-default ^
+                                --instance-url https://login.salesforce.com
+                            '''
+                        }
                     }
                 }
             }
         }
+
 
         stage('Verify Connection') {
             steps {
