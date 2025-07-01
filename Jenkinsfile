@@ -27,7 +27,7 @@ pipeline {
     }
 }
 */
-
+/*
 pipeline {
     agent any
 
@@ -90,4 +90,66 @@ pipeline {
         }
     }
 }
+*/
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('salesforce-cli:latest')
+                }
+            }
+        }
+
+        stage('Authenticate to Salesforce') {
+            steps {
+                script {
+                    def workspacePath = env.WORKSPACE.replace('\\', '/')
+
+                    withCredentials([
+                        string(credentialsId: 'sf-username', variable: 'SF_USERNAME'),
+                        string(credentialsId: 'sf-consumer-key', variable: 'SF_CONSUMER_KEY'),
+                        file(credentialsId: 'sf-jwt-private-key', variable: 'SF_JWT_KEY_PATH')
+                    ]) {
+                        // Copy private key into workspace
+                        bat """copy "%SF_JWT_KEY_PATH%" "${workspacePath}\\sf-jwt.key" """
+
+                        // Auth to Salesforce
+                        bat """
+                        docker run --rm ^
+                            -v "${workspacePath}:/workspace" ^
+                            -w /workspace ^
+                            -e SF_USERNAME=%SF_USERNAME% ^
+                            -e SF_CONSUMER_KEY=%SF_CONSUMER_KEY% ^
+                            -e SF_JWT_KEY_FILE=sf-jwt.key ^
+                            salesforce-cli:latest ^
+                            sh -c "sf auth jwt:grant --client-id \$SF_CONSUMER_KEY --jwt-key-file \$SF_JWT_KEY_FILE --username \$SF_USERNAME --set-default --instance-url https://login.salesforce.com"
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Verify Connection') {
+            steps {
+                script {
+                    def workspacePath = env.WORKSPACE.replace('\\', '/')
+
+                    // Verify auth
+                    bat """
+                    docker run --rm ^
+                        -v "${workspacePath}:/workspace" ^
+                        -w /workspace ^
+                        salesforce-cli:latest ^
+                        sf org list --all
+                    """
+                }
+            }
+        }
+    }
+}
+
 
