@@ -104,45 +104,45 @@ pipeline {
             }
         }
 
-        stage('Authenticate to Salesforce') {
-          steps {
-            script {
-              def workspacePath = env.WORKSPACE.replace('\\', '/')
-              withCredentials([
-                string(credentialsId: 'sf-username', variable: 'SF_USERNAME'),
-                string(credentialsId: 'sf-consumer-key', variable: 'SF_CONSUMER_KEY'),
-                file(credentialsId: 'sf-jwt-private-key', variable: 'SF_JWT_KEY_PATH')
-              ]) {
-                bat """copy "%SF_JWT_KEY_PATH%" "${workspacePath}\\sf-jwt.key" """
-        
-                bat """
-                docker run --rm ^
-                  -v "${workspacePath}:/workspace" ^
-                  -w /workspace ^
-                  -e SF_USERNAME=%SF_USERNAME% ^
-                  -e SF_CONSUMER_KEY=%SF_CONSUMER_KEY% ^
-                  -e SF_JWT_KEY_FILE=sf-jwt.key ^
-                  salesforce-cli:latest ^
-                  sf auth jwt:grant --client-id %SF_CONSUMER_KEY% --jwt-key-file sf-jwt.key --username %SF_USERNAME% --set-default --instance-url https://login.salesforce.com --json
-                """
-              }
-            }
-          }
-        }
-
-        stage('Verify Connection') {
-            steps {
-                script {
-                    def workspacePath = env.WORKSPACE.replace('\\', '/')
-
-                    // Verify auth
-                    bat """
-                    docker run --rm ^
-                        -v "${workspacePath}:/workspace" ^
-                        -w /workspace ^
-                        salesforce-cli:latest ^
-                        sf org list --all
-                    """
+        stages {
+            stage('Authenticate Salesforce') {
+                steps {
+                    withCredentials([
+                        string(credentialsId: 'sf-username', variable: 'SF_USERNAME'),
+                        string(credentialsId: 'sf-consumer-key', variable: 'SF_CONSUMER_KEY'),
+                        file(credentialsId: 'sf-jwt-private-key', variable: 'SF_JWT_KEY_PATH')
+                    ]) {
+                        // Debug: Check variables (masked in console)
+                        bat '''
+                        echo SF_USERNAME=%SF_USERNAME%
+                        echo SF_CONSUMER_KEY=%SF_CONSUMER_KEY%
+                        dir "%SF_JWT_KEY_PATH%"
+                        '''
+    
+                        // Copy JWT key file to workspace as sf-jwt.key
+                        bat 'copy "%SF_JWT_KEY_PATH%" "%WORKSPACE%\\sf-jwt.key"'
+    
+                        // Run Salesforce CLI in Docker, mounting workspace
+                        bat '''
+                        docker run --rm ^
+                          -v "%WORKSPACE%:/workspace" ^
+                          -w /workspace ^
+                          -e SF_USERNAME=%SF_USERNAME% ^
+                          -e SF_CONSUMER_KEY=%SF_CONSUMER_KEY% ^
+                          -e SF_JWT_KEY_FILE=sf-jwt.key ^
+                          salesforce-cli:latest ^
+                          sf auth jwt:grant --client-id %SF_CONSUMER_KEY% --jwt-key-file sf-jwt.key --username %SF_USERNAME% --set-default --instance-url https://login.salesforce.com
+                        '''
+    
+                        // Optional: List authenticated orgs
+                        bat '''
+                        docker run --rm ^
+                          -v "%WORKSPACE%:/workspace" ^
+                          -w /workspace ^
+                          salesforce-cli:latest ^
+                          sf org list --all
+                        '''
+                    }
                 }
             }
         }
