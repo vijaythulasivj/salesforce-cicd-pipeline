@@ -108,7 +108,19 @@ pipeline {
             steps {
                 script {
                     def workspacePath = env.WORKSPACE.replace('\\', '/')
-        
+
+                    withCredentials([
+                      string(credentialsId: 'sf-username', variable: 'SF_USERNAME'),
+                      string(credentialsId: 'sf-consumer-key', variable: 'SF_CONSUMER_KEY'),
+                      file(credentialsId: 'sf-jwt-private-key', variable: 'SF_JWT_KEY_PATH')
+                    ]) {
+                      bat """
+                        echo SF_USERNAME=%SF_USERNAME%
+                        echo SF_CONSUMER_KEY=%SF_CONSUMER_KEY%
+                        dir "%SF_JWT_KEY_PATH%"
+                      """
+                    }
+                    /*
                     withCredentials([
                         string(credentialsId: 'sf-username', variable: 'SF_USERNAME'),
                         string(credentialsId: 'sf-consumer-key', variable: 'SF_CONSUMER_KEY'),
@@ -130,6 +142,7 @@ pipeline {
                             sf auth jwt:grant --client-id %SF_CONSUMER_KEY% --jwt-key-file sf-jwt.key --username %SF_USERNAME% --set-default --instance-url https://login.salesforce.com
                         """
                     }
+                    */
                 }
             }
         }
