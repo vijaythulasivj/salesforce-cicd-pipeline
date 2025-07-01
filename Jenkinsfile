@@ -45,24 +45,24 @@ pipeline {
         }
 
         stage('Test JWT Connection to Salesforce') {
-          steps {
-            withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-              sh '''
-                echo "🔐 Testing JWT-based authentication to Salesforce..."
-    
-                sfdx auth:jwt:grant \
-                  --clientid $CONSUMER_KEY \
-                  --jwtkeyfile $JWT_KEY \
-                  --username $SF_USERNAME \
-                  --instanceurl https://login.salesforce.com \
-                  --setalias jwt-test-user \
-                  --setdefaultusername
-    
-                echo "✅ Successfully connected to Salesforce via JWT!"
-                sfdx force:org:display
-              '''
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                        echo 🔐 Testing JWT-based authentication to Salesforce...
+
+                        sfdx auth:jwt:grant ^
+                          --clientid %CONSUMER_KEY% ^
+                          --jwtkeyfile %JWT_KEY% ^
+                          --username %SF_USERNAME% ^
+                          --instanceurl https://login.salesforce.com ^
+                          --setalias jwt-test-user ^
+                          --setdefaultusername
+
+                        echo ✅ Successfully connected to Salesforce via JWT!
+                        sfdx force:org:display
+                    """
+                }
             }
-          }
         }
     }
 }
