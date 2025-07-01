@@ -44,37 +44,25 @@ pipeline {
             }
         }
 
-        stage('Authenticate with Salesforce (JWT)') {
-            steps {
-                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'PRIVATE_KEY_FILE')]) {
-                    script {
-                        def workspacePath = env.WORKSPACE.replace('\\', '/')
-
-                        // Run the JWT authentication
-                        bat """
-                        docker run --rm -v ${workspacePath}:/workspace -v %PRIVATE_KEY_FILE%:/workspace/server.key -w /workspace salesforce-cli:latest sf org login jwt ^
-                            --username ${env.SF_USERNAME} ^
-                            --client-id ${env.CONSUMER_KEY} ^
-                            --jwt-key-file /workspace/server.key ^
-                            --instance-url https://login.salesforce.com ^
-                            --set-default ^
-                            --alias my-jwt-org
-                        """
-                    }
-                }
+        stage('Test JWT Connection to Salesforce') {
+          steps {
+            withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+              sh '''
+                echo "🔐 Testing JWT-based authentication to Salesforce..."
+    
+                sfdx auth:jwt:grant \
+                  --clientid $CONSUMER_KEY \
+                  --jwtkeyfile $JWT_KEY \
+                  --username $SF_USERNAME \
+                  --instanceurl https://login.salesforce.com \
+                  --setalias jwt-test-user \
+                  --setdefaultusername
+    
+                echo "✅ Successfully connected to Salesforce via JWT!"
+                sfdx force:org:display
+              '''
             }
-        }
-
-        stage('Verify Authenticated Org') {
-            steps {
-                script {
-                    def workspacePath = env.WORKSPACE.replace('\\', '/')
-
-                    bat """
-                    docker run --rm -v ${workspacePath}:/workspace -w /workspace salesforce-cli:latest sf org display --target-org my-jwt-org
-                    """
-                }
-            }
+          }
         }
     }
 }
