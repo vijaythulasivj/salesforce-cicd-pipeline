@@ -113,10 +113,12 @@ pipeline {
                 ]) {
                     // Debug: Check variables (masked in console)
                     bat '''
-                    echo SF_USERNAME=%SF_USERNAME%
-                    echo SF_CONSUMER_KEY=%SF_CONSUMER_KEY%
-                    dir "%SF_JWT_KEY_PATH%"
+                      echo SF_USERNAME=%SF_USERNAME% > debug.txt
+                      echo SF_CONSUMER_KEY=%SF_CONSUMER_KEY% >> debug.txt
+                      echo JWT path: %SF_JWT_KEY_PATH% >> debug.txt
+                      type debug.txt
                     '''
+
 
                     // Copy JWT key file to workspace as sf-jwt.key
                     bat 'copy "%SF_JWT_KEY_PATH%" "%WORKSPACE%\\sf-jwt.key"'
