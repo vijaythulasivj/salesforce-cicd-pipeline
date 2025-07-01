@@ -46,7 +46,7 @@ pipeline {
 
         stage('Authenticate with Salesforce (JWT)') {
             steps {
-                withCredentials([file(credentialsId: 'sf-private-key', variable: 'PRIVATE_KEY_FILE')]) {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'PRIVATE_KEY_FILE')]) {
                     script {
                         def workspacePath = env.WORKSPACE.replace('\\', '/')
 
