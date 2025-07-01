@@ -50,22 +50,22 @@ pipeline {
                     bat """
                         echo 🔐 Testing JWT-based authentication to Salesforce...
 
-                        sfdx auth:jwt:grant ^
-                          --clientid %CONSUMER_KEY% ^
-                          --jwtkeyfile %JWT_KEY% ^
+                        sf auth jwt grant ^
+                          --client-id %CONSUMER_KEY% ^
+                          --jwt-key-file %JWT_KEY% ^
                           --username %SF_USERNAME% ^
-                          --instanceurl https://login.salesforce.com ^
-                          --setalias jwt-test-user ^
-                          --setdefaultusername
+                          --instance-url https://login.salesforce.com ^
+                          --set-default
 
                         echo ✅ Successfully connected to Salesforce via JWT!
-                        sfdx force:org:display
+                        sf org display
                     """
                 }
             }
         }
     }
 }
+
 
 
 
