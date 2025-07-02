@@ -48,6 +48,9 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                     bat """
+                        echo Current user: %USERNAME%
+                        echo PATH: %PATH%
+                        where sf || echo sf not found
                         echo 🔐 Testing JWT-based authentication to Salesforce...
 
                         sf auth jwt grant ^
