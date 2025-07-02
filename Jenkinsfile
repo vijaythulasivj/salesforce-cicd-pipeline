@@ -57,7 +57,7 @@ pipeline {
                           --client-id %CONSUMER_KEY% ^
                           --jwt-key-file %JWT_KEY% ^
                           --username %SF_USERNAME% ^
-                          --instance-url https://login.salesforce.com ^
+                          --instance-url https://test.salesforce.com ^
                           --set-default
 
                         echo Successfully connected to Salesforce via JWT!
