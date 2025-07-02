@@ -51,7 +51,7 @@ pipeline {
                         echo Current user: %USERNAME%
                         echo PATH: %PATH%
                         where sf || echo sf not found
-                        echo 🔐 Testing JWT-based authentication to Salesforce...
+                        echo Testing JWT-based authentication to Salesforce...
 
                         sf auth jwt grant ^
                           --client-id %CONSUMER_KEY% ^
@@ -60,7 +60,7 @@ pipeline {
                           --instance-url https://login.salesforce.com ^
                           --set-default
 
-                        echo ✅ Successfully connected to Salesforce via JWT!
+                        echo Successfully connected to Salesforce via JWT!
                         sf org display
                     """
                 }
