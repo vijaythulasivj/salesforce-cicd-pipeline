@@ -94,12 +94,15 @@ pipeline {
                             --instance-url https://test.salesforce.com ^
                             --set-default
         
-                        sf apex test run --result-format human --wait 10
+                        echo Running Apex tests...
+        
+                        sf apex test run --result-format human --wait 10 --test-level RunLocalTests
         
                         if ERRORLEVEL 1 (
-                            echo ERROR: Apex tests failed.
+                            echo ❌ Apex tests failed.
                             exit /b 1
                         )
+        
                         echo ✅ Apex tests completed successfully!
                     """
                 }
