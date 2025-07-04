@@ -53,20 +53,24 @@ pipeline {
                             --username %SF_USERNAME% ^
                             --instance-url https://test.salesforce.com ^
                             --set-default
-        
-                        echo Running Apex Tests...
-        
+                    """
+                
+                    bat 'echo Running Apex Tests...'
+                
+                    bat """
                         sf apex test run ^
                             --result-format human ^
                             --wait 10 ^
                             --test-level RunLocalTests
-        
+                    """
+                
+                    bat """
                         if ERRORLEVEL 1 (
                             echo ❌ Apex tests failed.
                             exit /b 1
+                        ) else (
+                            echo ✅ Apex tests completed successfully!
                         )
-        
-                        echo ✅ Apex tests completed successfully!
                     """
                 }
             }
