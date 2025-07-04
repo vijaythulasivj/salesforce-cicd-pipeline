@@ -43,7 +43,7 @@ pipeline {
                 }
             }
         }
-
+        /*
         stage('Test JWT Connection to Salesforce') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
@@ -78,6 +78,29 @@ pipeline {
 
                         echo Displaying Org Info...
                         sf org display
+                    """
+                }
+            }
+        }
+        */
+        stage('Run Apex Tests') {
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                        sf auth jwt grant ^
+                            --client-id %CONSUMER_KEY% ^
+                            --jwt-key-file "%JWT_KEY%" ^
+                            --username %SF_USERNAME% ^
+                            --instance-url https://test.salesforce.com ^
+                            --set-default
+        
+                        sf apex test run --result-format human --wait 10
+        
+                        if ERRORLEVEL 1 (
+                            echo ERROR: Apex tests failed.
+                            exit /b 1
+                        )
+                        echo ✅ Apex tests completed successfully!
                     """
                 }
             }
