@@ -62,6 +62,7 @@ pipeline {
                             --result-format human ^
                             --wait 10 ^
                             --test-level RunLocalTests
+                            --synchronous
                     """
                 
                     bat """
