@@ -31,8 +31,8 @@ pipeline {
     agent any
 
     environment {
-        CONSUMER_KEY = credentials('sf-consumer-key')
-        SF_USERNAME = credentials('sf-username')
+        CONSUMER_KEY = credentials('sf-consumer-key')       // Consumer Key from Connected App
+        SF_USERNAME = credentials('sf-username')            // Sandbox user (e.g., user@domain.sandbox)
     }
 
     stages {
@@ -48,19 +48,35 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                     bat """
-                        echo Current user: %USERNAME%
+                        echo ==================================================
+                        echo Starting Salesforce JWT Authentication Test
+                        echo ==================================================
+
+                        echo Jenkins user: %USERNAME%
                         echo PATH: %PATH%
-                        where sf || echo sf not found
-                        echo Testing JWT-based authentication to Salesforce...
 
+                        echo Checking Salesforce CLI...
+                        where sf || (
+                            echo ERROR: Salesforce CLI not found. Exiting...
+                            exit /b 1
+                        )
+
+                        echo Authenticating to Salesforce Sandbox via JWT...
                         sf auth jwt grant ^
-                          --client-id %CONSUMER_KEY% ^
-                          --jwt-key-file %JWT_KEY% ^
-                          --username %SF_USERNAME% ^
-                          --instance-url https://test.salesforce.com ^
-                          --set-default
+                            --client-id %CONSUMER_KEY% ^
+                            --jwt-key-file "%JWT_KEY%" ^
+                            --username %SF_USERNAME% ^
+                            --instance-url https://test.salesforce.com ^
+                            --set-default
 
-                        echo Successfully connected to Salesforce via JWT!
+                        if ERRORLEVEL 1 (
+                            echo ERROR: JWT authentication failed.
+                            exit /b 1
+                        )
+
+                        echo ✅ Successfully authenticated to Salesforce!
+
+                        echo Displaying Org Info...
                         sf org display
                     """
                 }
@@ -68,6 +84,7 @@ pipeline {
         }
     }
 }
+
 
 
 
