@@ -43,46 +43,6 @@ pipeline {
                 }
             }
         }
-        /*
-        stage('Test JWT Connection to Salesforce') {
-            steps {
-                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                    bat """
-                        echo ==================================================
-                        echo Starting Salesforce JWT Authentication Test
-                        echo ==================================================
-
-                        echo Jenkins user: %USERNAME%
-                        echo PATH: %PATH%
-
-                        echo Checking Salesforce CLI...
-                        where sf || (
-                            echo ERROR: Salesforce CLI not found. Exiting...
-                            exit /b 1
-                        )
-
-                        echo Authenticating to Salesforce Sandbox via JWT...
-                        sf auth jwt grant ^
-                            --client-id %CONSUMER_KEY% ^
-                            --jwt-key-file "%JWT_KEY%" ^
-                            --username %SF_USERNAME% ^
-                            --instance-url https://test.salesforce.com ^
-                            --set-default
-
-                        if ERRORLEVEL 1 (
-                            echo ERROR: JWT authentication failed.
-                            exit /b 1
-                        )
-
-                        echo ✅ Successfully authenticated to Salesforce!
-
-                        echo Displaying Org Info...
-                        sf org display
-                    """
-                }
-            }
-        }
-        */
         stage('Run Apex Tests') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
