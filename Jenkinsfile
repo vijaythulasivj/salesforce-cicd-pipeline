@@ -57,17 +57,6 @@ pipeline {
                 
                     bat 'echo ✅ Successfully authenticated.'
 
-                    // Check for existing test runs
-                    bat """
-                        echo 🔍 Checking for existing Apex test executions...
-                        sf apex test queue list > queue_output.txt
-                        findstr /C:"Queued" queue_output.txt
-                        if %ERRORLEVEL% EQU 0 (
-                            echo ⚠️ Apex tests already in progress. Exiting to avoid ALREADY_IN_PROCESS error.
-                            exit /b 1
-                        )
-                    """
-
                     bat 'echo 🚀 Running Apex Tests...'
 
                     // Run Apex tests synchronously
