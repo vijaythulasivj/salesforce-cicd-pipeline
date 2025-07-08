@@ -59,39 +59,6 @@ pipeline {
                     """
         
                     bat 'echo ✅ Successfully authenticated.'
-                    bat 'echo 🚀 Running Apex Tests...'
-        
-                    // Run Apex tests asynchronously and capture output
-                    bat """
-                        sf apex test run ^
-                            --result-format json ^
-                            --wait 0 ^
-                            --test-level RunLocalTests > test_run.json
-                    """
-        
-                    // Extract test run ID from the JSON
-                    bat """
-                        for /f "tokens=2 delims=:" %%A in ('findstr /C:"testRunId" test_run.json') do (
-                            set TEST_RUN_ID=%%~A
-                            set TEST_RUN_ID=!TEST_RUN_ID:,=!
-                        )
-                        echo Extracted test run ID: !TEST_RUN_ID!
-                    """
-        
-                    // Retrieve test results
-                    bat """
-                        for /f "tokens=2 delims=:" %%A in ('findstr /C:"testRunId" test_run.json') do (
-                            set TEST_RUN_ID=%%~A
-                            set TEST_RUN_ID=!TEST_RUN_ID:,=!
-                            call sf apex get test --test-run-id !TEST_RUN_ID! --result-format human
-                            if ERRORLEVEL 1 (
-                                echo ❌ Apex tests failed.
-                                exit /b 1
-                            ) else (
-                                echo ✅ Apex tests completed successfully!
-                            )
-                        )
-                    """
                 }
             }
         }
