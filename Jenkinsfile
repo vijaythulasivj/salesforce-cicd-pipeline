@@ -59,6 +59,16 @@ pipeline {
                     """
         
                     bat 'echo ✅ Successfully authenticated.'
+        
+                    // Describe metadata types
+                    bat """
+                        echo 📄 Describing metadata types...
+                        sf metadata describe ^
+                            --target-org %SF_USERNAME% ^
+                            --json > metadata-types.json
+                    """
+        
+                    bat 'echo ✅ Metadata description saved to metadata-types.json'
                 }
             }
         }
