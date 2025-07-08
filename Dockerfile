@@ -7,11 +7,8 @@ RUN apt-get update && apt-get install -y bash curl git && rm -rf /var/lib/apt/li
 # Install Salesforce CLI (sf)
 RUN npm install -g @salesforce/cli
 
-# Install legacy Salesforce CLI (sfdx) from NPM
-RUN npm install -g sfdx-cli
-
-# Verify both CLIs
-RUN sf --version && sfdx --version
+# Verify SF CLI
+RUN sf --version 
 
 # Set working directory
 WORKDIR /app
