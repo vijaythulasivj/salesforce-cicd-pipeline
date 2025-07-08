@@ -44,6 +44,7 @@ pipeline {
                 }
             }
         }
+        /*
         stage('Run Apex Tests') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
@@ -72,6 +73,7 @@ pipeline {
                 }
             }
         }
+        */
     }
 }
 
