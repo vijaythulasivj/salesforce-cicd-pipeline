@@ -63,7 +63,7 @@ pipeline {
                     // Describe metadata types
                     bat """
                         echo 📄 Describing metadata types...
-                        sf metadata describe ^
+                        sf force mdapi describemetadata ^
                             --target-org %SF_USERNAME% ^
                             --json > metadata-types.json
                     """
