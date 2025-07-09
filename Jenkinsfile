@@ -109,18 +109,23 @@ pipeline {
         }
         stage('Get API Version') {
             steps {
-                bat """
-                    echo 📡 Fetching API version from org...
-                    sf force mdapi describemetadata ^
-                      --target-org %SF_USERNAME% ^
-                      --json > metadata-types.json
+                script {
+                    echo "📡 Fetching API version from Salesforce org..."
         
-                    echo 🔍 Extracting maxApiVersion using PowerShell...
-                    powershell -Command ^
-                      "$json = Get-Content metadata-types.json | ConvertFrom-Json; Write-Host ('🎯 Org Max API Version: ' + $json.result.maxApiVersion)"
-                """
+                    def output = bat(
+                        script: 'sf force mdapi describemetadata --target-org %SF_USERNAME% --json',
+                        returnStdout: true
+                    ).trim()
+        
+                    def parsedJson = readJSON text: output
+                    def apiVersion = parsedJson.result.maxApiVersion
+                    env.SF_API_VERSION = apiVersion.toString()
+                    
+                    echo "🎯 Org Max API Version: ${env.SF_API_VERSION}"
+                }
             }
         }
+
         stage('Run Apex Tests') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
