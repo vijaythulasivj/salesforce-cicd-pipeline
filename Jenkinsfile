@@ -112,11 +112,12 @@ pipeline {
                 bat """
                     echo 📡 Fetching API version from org...
                     sf force mdapi describemetadata ^
-                        --target-org %SF_USERNAME% ^
-                        --json > metadata-types.json
+                      --target-org %SF_USERNAME% ^
+                      --json > metadata-types.json
         
-                    echo 🔍 Extracting maxApiVersion from JSON...
-                    powershell -Command "$json = Get-Content metadata-types.json | ConvertFrom-Json; Write-Host ('🎯 Org Max API Version: ' + $json.result.maxApiVersion)"
+                    echo 🔍 Extracting maxApiVersion using PowerShell...
+                    powershell -Command ^
+                      "$json = Get-Content metadata-types.json | ConvertFrom-Json; Write-Host ('🎯 Org Max API Version: ' + $json.result.maxApiVersion)"
                 """
             }
         }
