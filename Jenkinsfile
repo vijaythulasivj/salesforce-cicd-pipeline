@@ -27,7 +27,7 @@ pipeline {
     }
 }
 */
-
+/*
 pipeline {
     agent any
 
@@ -74,6 +74,66 @@ pipeline {
         }
     }
 }
+*/
+
+pipeline {
+    agent any
+
+    environment {
+        CONSUMER_KEY = credentials('sf-consumer-key')       // Consumer Key from Connected App
+        SF_USERNAME = credentials('sf-username')            // Sandbox user (e.g., user@domain.sandbox)
+    }
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('salesforce-cli:latest')
+                }
+            }
+        }
+        stage('Authenticate') {
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                        sf auth jwt grant ^
+                            --client-id %CONSUMER_KEY% ^
+                            --jwt-key-file "%JWT_KEY%" ^
+                            --username %SF_USERNAME% ^
+                            --instance-url https://test.salesforce.com ^
+                            --set-default
+                    """
+                    bat 'echo ✅ Successfully authenticated.'
+                }
+            }
+        }
+        stage('Get API Version') {
+            steps {
+                bat """
+                    echo 📡 Fetching API version from org...
+                    sf force mdapi describemetadata ^
+                        --target-org %SF_USERNAME% ^
+                        --json > metadata-types.json
+                    powershell -Command "(Get-Content metadata-types.json | ConvertFrom-Json).result.maxApiVersion"
+                """
+            }
+        }
+        stage('Run Apex Tests') {
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                        echo 📄 Describing metadata types...
+                        sf force mdapi describemetadata ^
+                            --target-org %SF_USERNAME% ^
+                            --json > metadata-types.json
+                    """
+                    bat 'echo ✅ Metadata description saved to metadata-types.json'
+                }
+            }
+        }
+    }
+}
+
 
 
 
