@@ -43,10 +43,11 @@ pipeline {
                 }
             }
         }
+
         stage('Run Apex Tests') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-        
+
                     // Authenticate via JWT
                     bat """
                         sf auth jwt grant ^
@@ -56,9 +57,9 @@ pipeline {
                             --instance-url https://test.salesforce.com ^
                             --set-default
                     """
-        
+
                     bat 'echo ✅ Successfully authenticated.'
-        
+
                     // Describe metadata types
                     bat """
                         echo 📄 Describing metadata types...
@@ -66,13 +67,39 @@ pipeline {
                             --target-org %SF_USERNAME% ^
                             --json > metadata-types.json
                     """
-        
+
                     bat 'echo ✅ Metadata description saved to metadata-types.json'
+                }
+            }
+        }
+
+        stage('Retrieve Metadata') {
+            steps {
+                script {
+                    echo "📦 Retrieving metadata from sandbox org..."
+
+                    // Make sure the package.xml exists in a known folder
+                    // Assuming it's in 'manifest/package.xml'
+
+                    // Ensure output directory exists
+                    bat 'mkdir retrieved-metadata'
+
+                    // Retrieve metadata
+                    bat """
+                        sf project retrieve start ^
+                            --target-org %SF_USERNAME% ^
+                            --manifest manifest\\package.xml ^
+                            --output-dir retrieved-metadata ^
+                            --loglevel fatal
+                    """
+
+                    echo "✅ Metadata retrieval complete."
                 }
             }
         }
     }
 }
+
 
 
 
