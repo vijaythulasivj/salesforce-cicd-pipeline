@@ -112,17 +112,18 @@ pipeline {
                 script {
                     echo "📡 Fetching API version from Salesforce org..."
         
-                    // Debug: check if CLI is available
+                    // Debug: confirm CLI location
                     bat 'where sf'
         
-                    // Fetch org description into JSON file
+                    // Use full path to sf.cmd to avoid shell/path issues in Jenkins
                     bat '''
-                        sf org describe ^
+                        "C:\\Program Files\\sf\\bin\\sf.cmd" org describe ^
                             --target-org %SF_USERNAME% ^
                             --json ^
                             --loglevel fatal > output.json 2> nul
                     '''
         
+                    // Parse the JSON output
                     def parsedJson = readJSON file: 'output.json'
                     def apiVersion = parsedJson?.result?.maxApiVersion
                     if (!apiVersion) {
@@ -134,7 +135,6 @@ pipeline {
                 }
             }
         }
-
         stage('Run Apex Tests') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
