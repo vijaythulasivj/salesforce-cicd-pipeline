@@ -75,25 +75,21 @@ pipeline {
 
         stage('Retrieve Metadata') {
             steps {
-                script {
-                    echo "📦 Retrieving metadata from sandbox org..."
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    script {
+                        echo '📦 Retrieving metadata from sandbox org...'
         
-                    // Create directory only if it doesn't exist
-                    bat '''
-                        if not exist retrieved-metadata (
-                            mkdir retrieved-metadata
-                        )
-                    '''
+                        // Ensure directory exists
+                        bat 'if not exist retrieved-metadata (mkdir retrieved-metadata)'
         
-                    // Retrieve metadata using package.xml
-                    bat """
-                        sf project retrieve start ^
-                            --target-org %SF_USERNAME% ^
-                            --manifest manifest\\package.xml ^
-                            --output-dir retrieved-metadata
-                    """
-        
-                    echo "✅ Metadata retrieval complete."
+                        // Retrieve metadata using package.xml
+                        bat """
+                            sf project retrieve start ^
+                                --target-org %SF_USERNAME% ^
+                                --manifest manifest\\package.xml ^
+                                --output-dir retrieved-metadata
+                        """
+                    }
                 }
             }
         }
