@@ -112,7 +112,10 @@ pipeline {
                 script {
                     echo "📡 Fetching API version from Salesforce org..."
         
-                    // Run command and capture output into file, discard CLI warnings
+                    // Debug: check if CLI is available
+                    bat 'where sf'
+        
+                    // Fetch org description into JSON file
                     bat '''
                         sf org describe ^
                             --target-org %SF_USERNAME% ^
@@ -120,12 +123,9 @@ pipeline {
                             --loglevel fatal > output.json 2> nul
                     '''
         
-                    // Read and debug the JSON
                     def parsedJson = readJSON file: 'output.json'
-                    echo "🔍 Raw Parsed JSON: ${parsedJson}"
-        
                     def apiVersion = parsedJson?.result?.maxApiVersion
-                    if (apiVersion == null) {
+                    if (!apiVersion) {
                         error("❌ Could not extract maxApiVersion from JSON. Check sf CLI output.")
                     }
         
