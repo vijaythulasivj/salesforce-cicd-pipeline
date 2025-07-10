@@ -77,22 +77,18 @@ pipeline {
             steps {
                 script {
                     echo "📦 Retrieving metadata from sandbox org..."
-
-                    // Make sure the package.xml exists in a known folder
-                    // Assuming it's in 'manifest/package.xml'
-
+        
                     // Ensure output directory exists
                     bat 'mkdir retrieved-metadata'
-
-                    // Retrieve metadata
+        
+                    // Retrieve metadata using package.xml
                     bat """
                         sf project retrieve start ^
                             --target-org %SF_USERNAME% ^
                             --manifest manifest\\package.xml ^
-                            --output-dir retrieved-metadata ^
-                            --loglevel fatal
+                            --output-dir retrieved-metadata
                     """
-
+        
                     echo "✅ Metadata retrieval complete."
                 }
             }
