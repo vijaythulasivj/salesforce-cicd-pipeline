@@ -111,13 +111,14 @@ pipeline {
             steps {
                 script {
                     echo "📡 Fetching API version from Salesforce org..."
-        
-                    def output = bat(
-                        script: 'sf force mdapi describemetadata --target-org %SF_USERNAME% --json',
-                        returnStdout: true
-                    ).trim()
-        
-                    def parsedJson = readJSON text: output
+                    
+                    bat '''
+                        sf force mdapi describemetadata ^
+                            --target-org %SF_USERNAME% ^
+                            --json > output.json
+                    '''
+                    
+                    def parsedJson = readJSON file: 'output.json'
                     def apiVersion = parsedJson.result.maxApiVersion
                     env.SF_API_VERSION = apiVersion.toString()
                     
