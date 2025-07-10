@@ -111,17 +111,24 @@ pipeline {
             steps {
                 script {
                     echo "📡 Fetching API version from Salesforce org..."
-                    
+        
+                    // Run command and capture output into file, discard CLI warnings
                     bat '''
                         sf force mdapi describemetadata ^
                             --target-org %SF_USERNAME% ^
-                            --json > output.json
+                            --json > output.json 2> nul
                     '''
-                    
+        
+                    // Read and debug the JSON
                     def parsedJson = readJSON file: 'output.json'
-                    def apiVersion = parsedJson.result.maxApiVersion
+                    echo "🔍 Raw Parsed JSON: ${parsedJson}"
+        
+                    def apiVersion = parsedJson?.result?.maxApiVersion
+                    if (apiVersion == null) {
+                        error("❌ Could not extract maxApiVersion from JSON. Check sf CLI output.")
+                    }
+        
                     env.SF_API_VERSION = apiVersion.toString()
-                    
                     echo "🎯 Org Max API Version: ${env.SF_API_VERSION}"
                 }
             }
