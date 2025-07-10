@@ -27,7 +27,6 @@ pipeline {
     }
 }
 */
-/*
 pipeline {
     agent any
 
@@ -74,8 +73,7 @@ pipeline {
         }
     }
 }
-*/
-
+/*
 pipeline {
     agent any
 
@@ -150,6 +148,7 @@ pipeline {
         }
     }
 }
+*/
 
 
 
