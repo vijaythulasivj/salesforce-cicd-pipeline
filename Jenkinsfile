@@ -78,8 +78,12 @@ pipeline {
                 script {
                     echo "📦 Retrieving metadata from sandbox org..."
         
-                    // Ensure output directory exists
-                    bat 'mkdir retrieved-metadata'
+                    // Create directory only if it doesn't exist
+                    bat '''
+                        if not exist retrieved-metadata (
+                            mkdir retrieved-metadata
+                        )
+                    '''
         
                     // Retrieve metadata using package.xml
                     bat """
