@@ -114,9 +114,10 @@ pipeline {
         
                     // Run command and capture output into file, discard CLI warnings
                     bat '''
-                        sf force mdapi describemetadata ^
+                        sf org describe ^
                             --target-org %SF_USERNAME% ^
-                            --json > output.json 2> nul
+                            --json ^
+                            --loglevel fatal > output.json 2> nul
                     '''
         
                     // Read and debug the JSON
