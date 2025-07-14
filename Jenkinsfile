@@ -100,7 +100,7 @@ pipeline {
                     """
 
                     bat 'echo ✅ Successfully authenticated.'
-
+                    /*    
                     // Describe metadata types
                     bat """
                         echo 📄 Describing metadata types...
@@ -110,6 +110,7 @@ pipeline {
                     """
 
                     bat 'echo ✅ Metadata description saved to metadata-types.json'
+                    */
                 }
             }
         }
