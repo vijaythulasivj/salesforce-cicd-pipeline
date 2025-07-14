@@ -133,7 +133,7 @@ pipeline {
                         """
 
                         // Zip the retrieved metadata folder (PowerShell command for Windows agent)
-                        bat 'powershell Compress-Archive -Path retrieved-metadata\\* -DestinationPath retrieved-metadata.zip'
+                        bat 'powershell Compress-Archive -Path retrieved-metadata\\* -DestinationPath retrieved-metadata.zip -Force'
                     }
                 }
             }
