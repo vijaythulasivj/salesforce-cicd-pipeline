@@ -6,6 +6,10 @@ pipeline {
         SF_USERNAME = credentials('sf-username')
     }
 
+    parameters {
+        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
+    }
+
     stages {
         stage('Build Docker Image') {
             steps {
@@ -30,6 +34,7 @@ pipeline {
                 }
             }
         }
+
         /*
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             steps {
@@ -76,7 +81,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('🔍 Step 3: Verify Deletion of Apex Classes') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
@@ -90,6 +95,7 @@ if (foundClasses.isEmpty()) {
     System.debug('✅ All targeted classes were successfully deleted.');
 } else {
     System.debug('❌ Some classes are still present: ' + foundClasses);
+    throw new Exception('❌ Verification failed. Undeleted classes found.');
 }
                         '''
 
@@ -104,16 +110,20 @@ if (foundClasses.isEmpty()) {
             }
         }
         */
-        
+
         stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
             when {
-                expression { return false } // disabled by default, can be enabled manually
+                expression { return params.REDEPLOY_METADATA }
             }
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                     script {
-                        echo '📤 Redeploying previously retrieved metadata...'
+                        echo '📤 Redeploying previously retrieved metadata from backup zip...'
 
+                        // Extract the archived metadata
+                        bat 'powershell Expand-Archive -Path retrieved-metadata.zip -DestinationPath retrieved-metadata -Force'
+
+                        // Redeploy the unzipped metadata
                         bat """
                             sf project deploy start ^
                                 --target-org %SF_USERNAME% ^
@@ -127,14 +137,3 @@ if (foundClasses.isEmpty()) {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
