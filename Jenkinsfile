@@ -36,6 +36,9 @@ pipeline {
         }
 
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
+            when {
+                expression { return !params.REDEPLOY_METADATA }
+            }
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                     script {
