@@ -35,7 +35,6 @@ pipeline {
             }
         }
 
-        /*
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
@@ -64,11 +63,14 @@ pipeline {
         }
 
         stage('🗑️ Step 2: Delete Metadata (Destructive Deployment)') {
+            when {
+                expression { return !params.REDEPLOY_METADATA }
+            }
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                     script {
                         echo '🚨 Deleting metadata using destructiveChanges.xml...'
-
+        
                         bat """
                             sf project deploy start ^
                                 --target-org %SF_USERNAME% ^
@@ -81,7 +83,8 @@ pipeline {
                 }
             }
         }
-        */
+
+        /*
         stage('🔍 Step 3: Verify Deletion of Apex Classes') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
@@ -124,8 +127,7 @@ pipeline {
                 }
             }
         }
-
-        /*
+        */
         stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
             when {
                 expression { return params.REDEPLOY_METADATA }
@@ -150,6 +152,5 @@ pipeline {
                 }
             }
         }
-        */
     }
 }
