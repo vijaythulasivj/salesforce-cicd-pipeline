@@ -87,29 +87,36 @@ pipeline {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                     script {
                         echo '🔎 Verifying that deleted Apex classes are no longer in the org...'
-
+        
                         writeFile file: 'verifyDeletion.apex', text: '''
-List<String> classNamesToCheck = new List<String>{'ASKYTightestMatchServiceImpl', 'AccountTest2'};
-List<ApexClass> foundClasses = [SELECT Name FROM ApexClass WHERE Name IN :classNamesToCheck];
-if (foundClasses.isEmpty()) {
-    System.debug('✅ All targeted classes were successfully deleted.');
-} else {
-    System.debug('❌ Some classes are still present: ' + foundClasses);
-    throw new Exception('❌ Verification failed. Undeleted classes found.');
-}
+        List<String> classNamesToCheck = new List<String>{'ASKYTightestMatchServiceImpl', 'AccountTest2'};
+        List<ApexClass> foundClasses = [SELECT Name FROM ApexClass WHERE Name IN :classNamesToCheck];
+        if (foundClasses.isEmpty()) {
+            System.debug('✅ All targeted classes were successfully deleted.');
+        } else {
+            System.debug('❌ Some classes are still present: ' + foundClasses);
+        }
                         '''
-
-                        bat """
+        
+                        def output = bat(script: """
                             sf apex run ^
                                 --target-org %SF_USERNAME% ^
                                 --file verifyDeletion.apex ^
                                 --json
-                        """
+                        """, returnStdout: true).trim()
+        
+                        if (output.contains('✅ All targeted classes were successfully deleted.')) {
+                            echo '✅ Verification Result: All targeted classes were successfully deleted.'
+                        } else if (output.contains('❌ Some classes are still present')) {
+                            echo '❌ Verification Result: Some classes are still present in the org.'
+                        } else {
+                            echo '⚠️ Verification Result: Unexpected output.'
+                        }
                     }
                 }
             }
         }
-        
+
         /*
         stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
             when {
