@@ -76,7 +76,7 @@ pipeline {
                 }
             }
         }
-        */
+        
         stage('🔍 Step 3: Verify Deletion of Apex Classes') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
@@ -103,8 +103,8 @@ if (foundClasses.isEmpty()) {
                 }
             }
         }
-
-        /*
+        */
+        
         stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
             when {
                 expression { return false } // disabled by default, can be enabled manually
@@ -125,7 +125,6 @@ if (foundClasses.isEmpty()) {
                 }
             }
         }
-        */
     }
 }
 
