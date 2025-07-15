@@ -130,7 +130,7 @@ pipeline {
                 }
             }
         }
-        */
+        
         stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
             when {
                 expression { return params.REDEPLOY_METADATA }
@@ -153,6 +153,40 @@ pipeline {
                         """
                     }
                 }
+            }
+            */
+            stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
+              when {
+                expression { return params.REDEPLOY_METADATA }
+              }
+              steps {
+                script {
+                  echo "📤 Redeploying previously retrieved metadata…"
+            
+                  // Copy the backup zip from the last successful build
+                  copyArtifacts projectName: env.JOB_NAME,
+                                filter: 'retrieved-metadata.zip',
+                                selector: lastSuccessful()
+            
+                  // Make sure it was retrieved
+                  if (!fileExists('retrieved-metadata.zip')) {
+                    error "❌ Could not retrieve 'retrieved-metadata.zip' from last build. Redeploy cancelled."
+                  }
+            
+                  // Expand and deploy
+                  bat 'powershell Expand-Archive -Path retrieved-metadata.zip -DestinationPath retrieved-metadata -Force'
+            
+                  withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                      sf project deploy start ^
+                        --target-org %SF_USERNAME% ^
+                        --source-dir retrieved-metadata ^
+                        --ignore-warnings ^
+                        --wait 10
+                    """
+                  }
+                }
+              }
             }
         }
     }
