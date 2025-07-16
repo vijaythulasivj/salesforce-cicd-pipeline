@@ -183,10 +183,9 @@ pipeline {
                         --ignore-warnings ^
                         --wait 10
                     """
-                  }
                 }
-              }
             }
         }
     }
 }
+
