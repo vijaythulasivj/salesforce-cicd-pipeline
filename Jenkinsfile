@@ -159,42 +159,33 @@ pipeline {
                 expression { return params.REDEPLOY_METADATA }
             }
             steps {
+                echo "📤 Redeploying previously retrieved metadata…"
+        
+                // Use last successful build to copy artifacts
+                copyArtifacts(
+                    projectName: env.JOB_NAME,
+                    filter: 'retrieved-metadata.zip',
+                    selector: lastSuccessful()
+                )
+        
+                // Check if artifact exists
                 script {
-                    echo "📤 Redeploying previously retrieved metadata…"
-        
-                    // Get the last successful build number
-                    def lastSuccessfulBuild = currentBuild.rawBuild.getPreviousSuccessfulBuild()
-                    if (lastSuccessfulBuild == null) {
-                        error "❌ No previous successful build found. Redeploy cancelled."
-                    }
-        
-                    def buildNumber = lastSuccessfulBuild.getNumber()
-                    echo "✅ Found last successful build: #${buildNumber}"
-        
-                    // Copy the backup zip from the last successful build
-                    copyArtifacts(
-                        projectName: env.JOB_NAME,
-                        filter: 'retrieved-metadata.zip',
-                        selector: specific("${buildNumber}")
-                    )
-        
-                    // Make sure the artifact exists
                     if (!fileExists('retrieved-metadata.zip')) {
-                        error "❌ Could not retrieve 'retrieved-metadata.zip' from last successful build #${buildNumber}. Redeploy cancelled."
+                        error "❌ Could not retrieve 'retrieved-metadata.zip'. Redeploy cancelled."
                     }
+                }
         
-                    // Expand and deploy
-                    bat 'powershell Expand-Archive -Path retrieved-metadata.zip -DestinationPath retrieved-metadata -Force'
+                // Expand and deploy
+                bat 'powershell Expand-Archive -Path retrieved-metadata.zip -DestinationPath retrieved-metadata -Force'
         
-                    withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                        bat """
-                            sf project deploy start ^
-                                --target-org %SF_USERNAME% ^
-                                --source-dir retrieved-metadata ^
-                                --ignore-warnings ^
-                                --wait 10
-                        """
-                    }
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                        sf project deploy start ^
+                            --target-org %SF_USERNAME% ^
+                            --source-dir retrieved-metadata ^
+                            --ignore-warnings ^
+                            --wait 10
+                    """
                 }
             }
         }
