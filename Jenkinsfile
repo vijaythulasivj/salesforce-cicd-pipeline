@@ -34,7 +34,7 @@ pipeline {
                 }
             }
         }
-        /*
+        
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -86,74 +86,7 @@ pipeline {
                 }
             }
         }
-        stage('🔍 Step 3: Verify Deletion of Apex Classes') {
-            steps {
-                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                    script {
-                        echo '🔎 Verifying that deleted Apex classes are no longer in the org...'
         
-                        // Write the Apex verification script (no exceptions thrown)
-                        writeFile file: 'verifyDeletion.apex', text: '''
-        List<String> classNamesToCheck = new List<String>{'ASKYTightestMatchServiceImpl', 'AccountTest2'};
-        List<ApexClass> foundClasses = [SELECT Name FROM ApexClass WHERE Name IN :classNamesToCheck];
-        if (foundClasses.isEmpty()) {
-            System.debug('✅ All targeted classes were successfully deleted.');
-        } else {
-            System.debug('❌ Some classes are still present: ' + foundClasses);
-        }
-                        '''
-        
-                        // Run the Apex script, capturing logs in 'apex-logs' folder
-                        bat """
-                            sf apex run ^
-                                --target-org %SF_USERNAME% ^
-                                --file verifyDeletion.apex ^
-                                --loglevel debug ^
-                                --output-dir apex-logs ^
-                                --json
-                        """
-        
-                        // Read the generated debug log file (assuming only one log, 'apex.log')
-                        def logFileContent = readFile('apex-logs/apex.log').trim()
-        
-                        // Check log content for success or failure messages
-                        if (logFileContent.contains('✅ All targeted classes were successfully deleted.')) {
-                            echo '✅ Verification Result: All targeted classes were successfully deleted.'
-                        } else if (logFileContent.contains('❌ Some classes are still present')) {
-                            echo '❌ Verification Result: Some classes are still present in the org.'
-                        } else {
-                            echo '⚠️ Verification Result: Unexpected output in debug logs.'
-                        }
-                    }
-                }
-            }
-        }
-        
-        stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
-            when {
-                expression { return params.REDEPLOY_METADATA }
-            }
-            steps {
-                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                    script {
-                        echo '📤 Redeploying previously retrieved metadata from backup zip...'
-
-                        // Extract the archived metadata
-                        bat 'powershell Expand-Archive -Path retrieved-metadata.zip -DestinationPath retrieved-metadata -Force'
-
-                        // Redeploy the unzipped metadata
-                        bat """
-                            sf project deploy start ^
-                                --target-org %SF_USERNAME% ^
-                                --source-dir retrieved-metadata ^
-                                --ignore-warnings ^
-                                --wait 10
-                        """
-                    }
-                }
-            }
-        }
-        */
         stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
             when {
                 expression { return params.REDEPLOY_METADATA }
