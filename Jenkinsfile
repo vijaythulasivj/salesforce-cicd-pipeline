@@ -154,7 +154,7 @@ pipeline {
                     }
                 }
             }
-            */
+        
             stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
               when {
                 expression { return params.REDEPLOY_METADATA }
@@ -189,5 +189,6 @@ pipeline {
               }
             }
         }
+        */
     }
 }
