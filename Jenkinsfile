@@ -84,7 +84,6 @@ pipeline {
                                     -d destructive ^
                                     -w 10 ^
                                     -c ^
-                                    -g destructive/destructiveChanges.xml ^
                                     --ignorewarnings
                             """,
                             returnStatus: true
