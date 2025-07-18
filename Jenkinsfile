@@ -98,7 +98,7 @@ pipeline {
                 }
             }
         }
-        
+        /*
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -150,6 +150,7 @@ pipeline {
                 }
             }
         }
+        */
         
         stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
             when {
