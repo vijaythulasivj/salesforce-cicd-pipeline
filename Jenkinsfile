@@ -34,39 +34,6 @@ pipeline {
                 }
             }
         }
-        /*
-        stage('🔍 Step 0: Validate Deletion Readiness') {
-            when {
-                expression { return !params.REDEPLOY_METADATA }
-            }
-            steps {
-                script {
-                    echo '🧪 Validating potential impact of deletion using check-only deploy...'
-        
-                    withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                        def result = bat(
-                            script: """
-                                sf project deploy start ^
-                                    --target-org %SF_USERNAME% ^
-                                    --manifest destructive/package.xml ^
-                                    --post-destructive-changes destructive/destructiveChanges.xml ^
-                                    --check-only ^
-                                    --ignore-warnings ^
-                                    --wait 10
-                            """,
-                            returnStatus: true
-                        )
-        
-                        if (result != 0) {
-                            error "❌ Validation failed. Deletion would cause errors or dependency issues."
-                        } else {
-                            echo '✅ Validation passed. No critical dependencies found for deletion.'
-                        }
-                    }
-                }
-            }
-        }
-        */
 
         stage('🔍 Step 0: Validate Deletion Readiness') {
             when {
@@ -109,7 +76,6 @@ pipeline {
             }
         }
 
-        /*
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -161,7 +127,6 @@ pipeline {
                 }
             }
         }
-        */
         
         stage('📦 Step 4: Redeploy from Backup (Optional Manual Trigger)') {
             when {
