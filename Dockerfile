@@ -4,13 +4,10 @@ FROM node:18
 # Install dependencies for SF CLI
 RUN apt-get update && apt-get install -y bash curl git && rm -rf /var/lib/apt/lists/*
 
-# Install Salesforce CLI (sf)
+# Install Salesforce CLI (sf) which also provides sfdx compatibility
 RUN npm install -g @salesforce/cli
 
-# Install legacy Salesforce DX CLI (sfdx)
-RUN npm install -g sfdx-cli
-
-# Verify both CLIs are installed
+# Verify both CLIs are installed (sf and sfdx commands come from the same install)
 RUN sf --version
 RUN sfdx --version
 
