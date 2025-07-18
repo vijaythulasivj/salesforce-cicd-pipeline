@@ -1,24 +1,22 @@
-# Use an official lightweight node image as base (SF CLI is Node-based)
 FROM node:18
 
-# Install dependencies for SF CLI and sfdx CLI installer
+# Install dependencies
 RUN apt-get update && apt-get install -y bash curl git unzip xz-utils && rm -rf /var/lib/apt/lists/*
 
 # Install Salesforce CLI (sf)
 RUN npm install -g @salesforce/cli
 
-# Install Salesforce DX CLI (sfdx) - legacy CLI needed for check-only deploy
-RUN curl -Lo sfdx-linux-amd64.tar.xz https://developer.salesforce.com/media/salesforce-cli/sfdx-linux-amd64-v7.204.2.tar.xz && \
-    tar -xJf sfdx-linux-amd64.tar.xz && \
-    ./sfdx/install && \
-    rm -rf sfdx-linux-amd64.tar.xz sfdx
+# Install Salesforce DX CLI (legacy sfdx)
+RUN curl -Lo sfdx.tar.xz https://github.com/salesforcecli/sfdx-cli/releases/download/v7.205.0/sfdx-cli-v7.205.0-linux-x64.tar.xz && \
+    mkdir -p /sfdx && \
+    tar -xJf sfdx.tar.xz -C /sfdx --strip-components=1 && \
+    /sfdx/install && \
+    rm -rf sfdx.tar.xz /sfdx
 
-# Verify both CLIs
+# Verify CLIs
 RUN sf --version
 RUN sfdx --version
 
 # Set working directory
 WORKDIR /app
-
-# Default command
 CMD ["bash"]
