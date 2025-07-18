@@ -91,7 +91,8 @@ pipeline {
                         bat """
                             sf project retrieve start ^
                                 --target-org %SF_USERNAME% ^
-                                --manifest manifest\\package.xml ^
+                               // --manifest manifest\\package.xml ^
+                                --destructive destructive\\destructiveChanges.xml ^
                                 --output-dir retrieved-metadata
                         """
 
