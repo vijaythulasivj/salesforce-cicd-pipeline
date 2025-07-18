@@ -1,18 +1,13 @@
-FROM node:18
+# Use the official Salesforce CLI image with both sf and sfdx
+FROM salesforce/salesforcedx:latest
 
-# Install dependencies
-RUN apt-get update && apt-get install -y bash curl git unzip xz-utils && rm -rf /var/lib/apt/lists/*
-
-# Install unified Salesforce CLI
-RUN npm install -g @salesforce/cli
-
-# Install legacy SFDX functionality via plugin
-RUN sf plugins install @salesforce/sfdx-plugin
-
-# Verify both CLIs
-RUN sf --version && sf plugins
+# Install additional tools if needed
+RUN apt-get update && apt-get install -y unzip git bash curl xz-utils && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
+
+# Optional: Verify CLIs
+RUN sf --version && sfdx --version
 
 CMD ["bash"]
