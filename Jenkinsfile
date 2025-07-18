@@ -1,13 +1,3 @@
-stage('Check Jenkins PATH') {
-    steps {
-        bat 'echo %PATH%'
-        bat 'where sfdx'
-        bat 'where sf'
-        bat 'sfdx --version'
-        bat 'sf --version'
-    }
-}
-/*
 pipeline {
     agent any
 
@@ -199,6 +189,6 @@ pipeline {
         }
     }
 }
-*/
+
 
 
