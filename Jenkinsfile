@@ -77,14 +77,24 @@ pipeline {
                     echo '🧪 Validating potential impact of deletion using check-only deploy...'
         
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                        def deployDir = 'destructive' // Adjust as needed
+                        def logFileName = 'validate_deletion_log.json'
+        
                         def result = bat(
                             script: """
-                                sfdx force:mdapi:deploy ^
-                                    -u %SF_USERNAME% ^
-                                    -d destructive ^
-                                    -w 10 ^
-                                    -c ^
-                                    --ignorewarnings
+                                sf org login jwt ^
+                                    --client-id %SF_CLIENT_ID% ^
+                                    --username %SF_USERNAME% ^
+                                    --jwt-key-file "%JWT_KEY%" ^
+                                    --alias ciOrg ^
+                                    --set-default ^
+                                    --no-prompt
+        
+                                sf project deploy start ^
+                                    --source-dir ${deployDir} ^
+                                    --dry-run ^
+                                    --target-org ciOrg ^
+                                    --json | tee ${logFileName}
                             """,
                             returnStatus: true
                         )
@@ -98,6 +108,7 @@ pipeline {
                 }
             }
         }
+
         /*
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             when {
