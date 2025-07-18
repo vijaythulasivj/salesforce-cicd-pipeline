@@ -83,7 +83,7 @@ pipeline {
                         def result = bat(
                             script: """
                                 sf org login jwt ^
-                                    --client-id %SF_CLIENT_ID% ^
+                                    --client-id %CONSUMER_KEY% ^
                                     --username %SF_USERNAME% ^
                                     --jwt-key-file "%JWT_KEY%" ^
                                     --alias ciOrg ^
