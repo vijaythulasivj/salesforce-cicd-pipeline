@@ -56,13 +56,14 @@ pipeline {
                                     --alias ciOrg ^
                                     --set-default ^
                                     --no-prompt
-        
+                                echo "✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
                                 sf project deploy start ^
                                     --manifest ${deployDir}/package.xml ^
                                     --target-org ciOrg ^
                                     --validation ^
                                     --test-level NoTestRun ^
                                     --json > ${logFileName}
+                                echo "✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
                             returnStatus: true
                         )
