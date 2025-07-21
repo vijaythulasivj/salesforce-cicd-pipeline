@@ -59,7 +59,23 @@ pipeline {
                             returnStatus: true
                         )
         
-                        if (result != 0) {
+                        def deployResult = readJSON file: logFileName
+        
+                        if (deployResult.status != 0) {
+                            echo "❌ Deletion validation failed. Checking details..."
+        
+                            def failures = deployResult?.result?.details?.componentFailures
+        
+                            if (failures instanceof List) {
+                                failures.each { f ->
+                                    echo "- Component: ${f.componentType} ${f.fullName} | Problem: ${f.problem}"
+                                }
+                            } else if (failures instanceof Map) {
+                                echo "- Component: ${failures.componentType} ${failures.fullName} | Problem: ${failures.problem}"
+                            } else {
+                                echo "⚠️ Could not parse component failures properly."
+                            }
+        
                             error "❌ Validation failed. Deletion would cause errors or dependency issues."
                         } else {
                             echo '✅ Validation passed. No critical dependencies found for deletion.'
