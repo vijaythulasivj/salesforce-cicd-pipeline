@@ -54,7 +54,7 @@ pipeline {
                                     --destructive-changes destructive/destructiveChanges.xml ^
                                     --target-org ciOrg ^
                                     --check-only ^
-                                    --json | tee ${logFileName}
+                                    --json > ${logFileName}
                             """,
                             returnStatus: true
                         )
