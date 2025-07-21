@@ -57,9 +57,9 @@ pipeline {
                                     --alias ciOrg ^
                                     --set-default ^
                                     --no-prompt
-        
+                        
                                 echo ">> ✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
-        
+                        
                                 echo ">> Starting dry-run deploy from ${deployDir}..."
                                 sf project deploy start ^
                                     --source-dir ${deployDir} ^
@@ -67,12 +67,11 @@ pipeline {
                                     --target-org ciOrg ^
                                     --test-level NoTestRun ^
                                     --json > ${logFileName}
-        
+                        
                                 echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
                             returnStdout: true
                         ).trim()
-        
                         echo "🔍 Deploy command output:\n${output}"
         
                         if (fileExists(logFileName)) {
