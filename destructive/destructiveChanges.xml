@@ -3,6 +3,7 @@
     <types>
         <members>AccountTest2</members>
         <members>ASKYTightestMatchServiceImpl</members>
+        <members>FakeMetadata</members>
         <name>ApexClass</name>
     </types>
     <version>64.0</version>
