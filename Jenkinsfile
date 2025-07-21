@@ -71,8 +71,9 @@ pipeline {
                         
                                 echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
-                            returnStatus: true
+                            returnStdout: true
                         ).trim()
+
                         echo "🔍 Deploy command output:\n${output}"
         
                         if (fileExists(logFileName)) {
