@@ -47,7 +47,7 @@ pipeline {
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                         def logFileName = 'validate_deletion_log.json'
         
-                        // Authenticate and set alias ciOrg first
+                        // Authenticate with alias ciOrg
                         bat """
                             sf auth jwt grant ^
                                 --client-id %CONSUMER_KEY% ^
@@ -60,7 +60,7 @@ pipeline {
         
                         def result = bat(
                             script: """
-                                sf deploy metadata ^
+                                sf project deploy start ^
                                     --manifest destructive/package.xml ^
                                     --destructive-changes destructive/destructiveChanges.xml ^
                                     --target-org ciOrg ^
@@ -76,7 +76,6 @@ pipeline {
                         if (result != 0) {
                             echo "❌ Deletion validation failed. Checking details..."
         
-                            // Try multiple possible locations for failures/errors
                             def failures = deployResult?.result?.details?.componentFailures
                             def errors = deployResult?.result?.errors
         
