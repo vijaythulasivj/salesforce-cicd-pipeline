@@ -76,23 +76,6 @@ pipeline {
                         echo "📄 Full deploy JSON output:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(deployResult))}"
         
                         if (result != 0) {
-                            echo "❌ Deletion validation failed. Checking details..."
-        
-                            def failures = deployResult?.result?.details?.componentFailures
-                            def errors = deployResult?.result?.errors
-        
-                            if (failures instanceof List && failures.size() > 0) {
-                                failures.each { f ->
-                                    echo "- ❌ Component failure: ${f.componentType} ${f.fullName} | Problem: ${f.problem}"
-                                }
-                            } else if (errors instanceof List && errors.size() > 0) {
-                                errors.each { e ->
-                                    echo "- ❌ Error: ${e.message}"
-                                }
-                            } else {
-                                echo "⚠️ Could not parse component failures or errors properly."
-                            }
-        
                             error "❌ Validation failed. Deletion would cause errors or dependency issues."
                         } else {
                             echo '✅ Validation passed. No critical dependencies found for deletion.'
@@ -102,48 +85,7 @@ pipeline {
             }
         }
 
-        /*
-        stage('🔍 Step 0: Validate Deletion Readiness') {
-            when {
-                expression { return !params.REDEPLOY_METADATA }
-            }
-            steps {
-                script {
-                    echo '🧪 Validating potential impact of deletion using check-only deploy...'
-        
-                    withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                        def deployDir = 'destructive' // Adjust as needed
-                        def logFileName = 'validate_deletion_log.json'
-        
-                        def result = bat(
-                            script: """
-                                sf org login jwt ^
-                                    --client-id %CONSUMER_KEY% ^
-                                    --username %SF_USERNAME% ^
-                                    --jwt-key-file "%JWT_KEY%" ^
-                                    --alias ciOrg ^
-                                    --set-default ^
-                                    --no-prompt
-        
-                                sf project deploy start ^
-                                    --source-dir ${deployDir} ^
-                                    --dry-run ^
-                                    --target-org ciOrg ^
-                                    --json | tee ${logFileName}
-                            """,
-                            returnStatus: true
-                        )
-        
-                        if (result != 0) {
-                            error "❌ Validation failed. Deletion would cause errors or dependency issues."
-                        } else {
-                            echo '✅ Validation passed. No critical dependencies found for deletion.'
-                        }
-                    }
-                }
-            }
-        }
-        
+        /*      
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
