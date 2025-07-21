@@ -63,19 +63,26 @@ pipeline {
         
                         if (deployResult.status != 0) {
                             echo "❌ Deletion validation failed. Checking details..."
-        
+                        
                             def failures = deployResult?.result?.details?.componentFailures
-        
-                            if (failures instanceof List) {
+                            def errors = deployResult?.result?.errors
+                        
+                            if (failures instanceof List && failures.size() > 0) {
                                 failures.each { f ->
                                     echo "- Component: ${f.componentType} ${f.fullName} | Problem: ${f.problem}"
                                 }
+                            } else if (errors instanceof List && errors.size() > 0) {
+                                errors.each { e ->
+                                    echo "- Error: ${e.message}"
+                                }
                             } else if (failures instanceof Map) {
                                 echo "- Component: ${failures.componentType} ${failures.fullName} | Problem: ${failures.problem}"
+                            } else if (errors instanceof Map) {
+                                echo "- Error: ${errors.message}"
                             } else {
-                                echo "⚠️ Could not parse component failures properly."
+                                echo "⚠️ Could not parse component failures or errors properly."
                             }
-        
+                        
                             error "❌ Validation failed. Deletion would cause errors or dependency issues."
                         } else {
                             echo '✅ Validation passed. No critical dependencies found for deletion.'
