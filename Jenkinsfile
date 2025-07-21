@@ -50,6 +50,9 @@ pipeline {
                         def output = bat(
                             script: """
                                 @echo on
+                        
+                                echo ">> ✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
+                        
                                 sf org login jwt ^
                                     --client-id %CONSUMER_KEY% ^
                                     --username %SF_USERNAME% ^
@@ -57,8 +60,6 @@ pipeline {
                                     --alias ciOrg ^
                                     --set-default ^
                                     --no-prompt
-                        
-                                echo ">> ✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
                         
                                 echo ">> Starting dry-run deploy from ${deployDir}..."
                                 sf project deploy start ^
@@ -70,7 +71,7 @@ pipeline {
                         
                                 echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
-                            returnStdout: true
+                            returnStatus: true
                         ).trim()
                         echo "🔍 Deploy command output:\n${output}"
         
