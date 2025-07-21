@@ -44,15 +44,15 @@ pipeline {
                     echo '🧪 Validating potential impact of deletion using check-only deploy...'
         
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                        def deployDir = 'destructive' // Folder with metadata to be deleted
+                        def deployDir = 'destructive' // Folder containing package.xml and destructiveChanges.xml
                         def logFileName = 'validate_deletion_log.json'
         
                         def output = bat(
                             script: """
                                 @echo on
-                        
+        
                                 echo ">> ✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
-                        
+        
                                 sf org login jwt ^
                                     --client-id %CONSUMER_KEY% ^
                                     --username %SF_USERNAME% ^
@@ -60,20 +60,20 @@ pipeline {
                                     --alias ciOrg ^
                                     --set-default ^
                                     --no-prompt
-                        
+        
                                 echo ">> Starting dry-run deploy from ${deployDir}..."
                                 sf project deploy start ^
-                                  --manifest destructive/package.xml ^
-                                  --target-org ciOrg ^
-                                  --validation ^
-                                  --test-level NoTestRun ^
-                                  --json > validate_deletion_log.json
-                        
+                                    --manifest ${deployDir}/package.xml ^
+                                    --target-org ciOrg ^
+                                    --validation ^
+                                    --test-level NoTestRun ^
+                                    --json > ${logFileName}
+        
                                 echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
                             returnStdout: true
                         ).trim()
-
+        
                         echo "🔍 Deploy command output:\n${output}"
         
                         if (fileExists(logFileName)) {
@@ -92,6 +92,7 @@ pipeline {
                 }
             }
         }
+
 
         /*      
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
