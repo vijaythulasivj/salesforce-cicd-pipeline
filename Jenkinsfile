@@ -49,6 +49,7 @@ pipeline {
         
                         def result = bat(
                             script: """
+                                @echo on
                                 sf org login jwt ^
                                     --client-id %CONSUMER_KEY% ^
                                     --username %SF_USERNAME% ^
@@ -56,13 +57,16 @@ pipeline {
                                     --alias ciOrg ^
                                     --set-default ^
                                     --no-prompt
+        
                                 echo "✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
+        
                                 sf project deploy start ^
                                     --manifest ${deployDir}/package.xml ^
                                     --target-org ciOrg ^
                                     --validation ^
                                     --test-level NoTestRun ^
                                     --json > ${logFileName}
+        
                                 echo "✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
                             returnStatus: true
