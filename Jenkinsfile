@@ -76,7 +76,7 @@ pipeline {
                 }
             }
         }
-
+        /*
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -165,6 +165,7 @@ pipeline {
                 }
             }
         }
+        */
     }
 }
 /*
