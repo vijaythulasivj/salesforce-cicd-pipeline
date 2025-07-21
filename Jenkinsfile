@@ -44,10 +44,9 @@ pipeline {
                     echo '🧪 Validating potential impact of deletion using check-only deploy...'
         
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                        def deployDir = 'destructive' // Folder with package.xml and destructiveChanges.xml
+                        def deployDir = 'destructive' // Folder with metadata to be deleted
                         def logFileName = 'validate_deletion_log.json'
         
-                        // Run the entire batch and capture the stdout for debug
                         def output = bat(
                             script: """
                                 @echo on
@@ -61,24 +60,21 @@ pipeline {
         
                                 echo ">> ✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
         
-                                echo ">> Starting deploy validation command now..."
+                                echo ">> Starting dry-run deploy from ${deployDir}..."
                                 sf project deploy start ^
-                                    --manifest ${deployDir}/package.xml ^
+                                    --source-dir ${deployDir} ^
+                                    --dry-run ^
                                     --target-org ciOrg ^
-                                    --validation ^
                                     --test-level NoTestRun ^
                                     --json > ${logFileName}
-                                echo ">> Finished deploy validation command."
         
                                 echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
                             returnStdout: true
                         ).trim()
         
-                        // Print captured output for debugging
                         echo "🔍 Deploy command output:\n${output}"
         
-                        // Check if the log file was created before trying to read it
                         if (fileExists(logFileName)) {
                             def deployResult = readJSON file: logFileName
                             echo "📄 Full deploy JSON output:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(deployResult))}"
