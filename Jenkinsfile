@@ -63,11 +63,11 @@ pipeline {
                         
                                 echo ">> Starting dry-run deploy from ${deployDir}..."
                                 sf project deploy start ^
-                                    --source-dir ${deployDir} ^
-                                    --dry-run ^
-                                    --target-org ciOrg ^
-                                    --test-level NoTestRun ^
-                                    --json > ${logFileName}
+                                  --manifest destructive/package.xml ^
+                                  --target-org ciOrg ^
+                                  --validation ^
+                                  --test-level NoTestRun ^
+                                  --json > validate_deletion_log.json
                         
                                 echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
