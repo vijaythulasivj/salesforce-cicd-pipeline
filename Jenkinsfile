@@ -47,7 +47,8 @@ pipeline {
                         def deployDir = 'destructive' // Folder with package.xml and destructiveChanges.xml
                         def logFileName = 'validate_deletion_log.json'
         
-                        def result = bat(
+                        // Run the entire batch and capture the stdout for debug
+                        def output = bat(
                             script: """
                                 @echo on
                                 sf org login jwt ^
@@ -58,27 +59,37 @@ pipeline {
                                     --set-default ^
                                     --no-prompt
         
-                                echo "✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
+                                echo ">> ✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
         
+                                echo ">> Starting deploy validation command now..."
                                 sf project deploy start ^
                                     --manifest ${deployDir}/package.xml ^
                                     --target-org ciOrg ^
                                     --validation ^
                                     --test-level NoTestRun ^
                                     --json > ${logFileName}
+                                echo ">> Finished deploy validation command."
         
-                                echo "✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
+                                echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
-                            returnStatus: true
-                        )
+                            returnStdout: true
+                        ).trim()
         
-                        def deployResult = readJSON file: logFileName
-                        echo "📄 Full deploy JSON output:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(deployResult))}"
+                        // Print captured output for debugging
+                        echo "🔍 Deploy command output:\n${output}"
         
-                        if (result != 0) {
-                            error "❌ Validation failed. Deletion would cause errors or dependency issues."
+                        // Check if the log file was created before trying to read it
+                        if (fileExists(logFileName)) {
+                            def deployResult = readJSON file: logFileName
+                            echo "📄 Full deploy JSON output:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(deployResult))}"
+        
+                            if (deployResult.status != 0) {
+                                error "❌ Validation failed. Deletion would cause errors or dependency issues."
+                            } else {
+                                echo '✅ Validation passed. No critical dependencies found for deletion.'
+                            }
                         } else {
-                            echo '✅ Validation passed. No critical dependencies found for deletion.'
+                            error "❌ Validation log file ${logFileName} not found. Deploy command may have failed."
                         }
                     }
                 }
