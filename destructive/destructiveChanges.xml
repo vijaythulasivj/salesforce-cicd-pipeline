@@ -57,7 +57,6 @@
 		<members>Transitorio_ContractTriggerHandler_Test</members>
 		<members>Trigger_PaymentMethod_Test</members>
 		<members>WS_PGS_SEND_PRINT_Test</members>
-		<members>FakeClassToCauseFailure</members>
 	</types>
 	<types>
 		<name>ApexPage</name>
