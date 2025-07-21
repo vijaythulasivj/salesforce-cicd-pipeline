@@ -50,9 +50,9 @@ pipeline {
                         def output = bat(
                             script: """
                                 @echo on
-        
+                        
                                 echo ">> ✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
-        
+                        
                                 sf org login jwt ^
                                     --client-id %CONSUMER_KEY% ^
                                     --username %SF_USERNAME% ^
@@ -60,15 +60,19 @@ pipeline {
                                     --alias ciOrg ^
                                     --set-default ^
                                     --no-prompt
-        
+                                echo Login command exited with errorlevel: %ERRORLEVEL%
+                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
+                        
                                 echo ">> Starting dry-run deploy from ${deployDir}..."
                                 sf project deploy start ^
-                                    --manifest ${deployDir}/package.xml ^
+                                    --manifest destructive/package.xml ^
                                     --target-org ciOrg ^
                                     --validation ^
                                     --test-level NoTestRun ^
-                                    --json > ${logFileName}
-        
+                                    --json > validate_deletion_log.json
+                                echo Deploy command exited with errorlevel: %ERRORLEVEL%
+                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
+                        
                                 echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
                             returnStdout: true
