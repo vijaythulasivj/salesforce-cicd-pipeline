@@ -47,6 +47,17 @@ pipeline {
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                         def logFileName = 'validate_deletion_log.json'
         
+                        // Authenticate and set alias ciOrg first
+                        bat """
+                            sf auth jwt grant ^
+                                --client-id %CONSUMER_KEY% ^
+                                --jwt-key-file "%JWT_KEY%" ^
+                                --username %SF_USERNAME% ^
+                                --instance-url https://test.salesforce.com ^
+                                --set-default ^
+                                --alias ciOrg
+                        """
+        
                         def result = bat(
                             script: """
                                 sf deploy metadata ^
