@@ -42,7 +42,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo '🧪 Validating potential impact of deletion using check-only deploy...'
+                    echo '🧪 Starting Deletion Validation (Step-by-step debug)...'
         
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                         def deployDir = 'destructive'
@@ -51,10 +51,8 @@ pipeline {
                         def output = bat(
                             script: """
                                 @echo on
-                        
-                                echo ">> ✅ Entered Deletion Validation Stage - Auth with sf CLI, Deploy with sfdx CLI"
-                        
-                                :: Authenticate with sf CLI
+        
+                                echo "🔁 Step 1: Authenticating using sf CLI..."
                                 sf auth jwt grant ^
                                     --client-id %CONSUMER_KEY% ^
                                     --jwt-key-file "%JWT_KEY%" ^
@@ -62,15 +60,23 @@ pipeline {
                                     --instance-url https://test.salesforce.com ^
                                     --set-default ^
                                     --no-prompt
-                                echo Auth command exited with errorlevel: %ERRORLEVEL%
-                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-                        
-                                :: Convert source to MDAPI format (sfdx destructive deploy needs MDAPI)
+                                echo 🔄 Auth Step Exit Code: %ERRORLEVEL%
+                                if %ERRORLEVEL% NEQ 0 (
+                                    echo ❌ Auth failed.
+                                    exit /b %ERRORLEVEL%
+                                )
+        
+                                echo "🔁 Step 2: Converting to MDAPI format (sfdx convert)..."
                                 sfdx force:source:convert ^
                                     --rootdir destructive ^
                                     --outputdir mdapi_output
-                        
-                                :: Check-only deploy using sfdx CLI (for destructive changes)
+                                echo 🔄 Convert Step Exit Code: %ERRORLEVEL%
+                                if %ERRORLEVEL% NEQ 0 (
+                                    echo ❌ Conversion failed.
+                                    exit /b %ERRORLEVEL%
+                                )
+        
+                                echo "🔁 Step 3: Deploying with sfdx (check-only)..."
                                 sfdx force:mdapi:deploy ^
                                     --deploydir mdapi_output ^
                                     --targetusername %SF_USERNAME% ^
@@ -78,15 +84,18 @@ pipeline {
                                     --wait 10 ^
                                     --json ^
                                     --loglevel fatal > validate_deletion_log.json
-                                echo Deploy command exited with errorlevel: %ERRORLEVEL%
-                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-                        
-                                echo ">> ✅ Exited Deletion Validation Stage"
+                                echo 🔄 Deploy Step Exit Code: %ERRORLEVEL%
+                                if %ERRORLEVEL% NEQ 0 (
+                                    echo ❌ Deploy failed.
+                                    exit /b %ERRORLEVEL%
+                                )
+        
+                                echo "✅ All steps completed in Deletion Validation stage."
                             """,
                             returnStdout: true
                         ).trim()
         
-                        echo "🔍 Deploy command output:\n${output}"
+                        echo "🔍 Deploy command raw output:\n${output}"
         
                         if (fileExists(logFileName)) {
                             def deployResult = readJSON file: logFileName
