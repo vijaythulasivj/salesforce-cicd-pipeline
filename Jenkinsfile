@@ -36,46 +36,71 @@ pipeline {
                 }
             }
         }
-        /*
+
         stage('🔍 Step 0: Validate Deletion Readiness') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
             }
             steps {
                 script {
-                    echo '🧪 Starting Deletion Validation (Step-by-step debug)...'
+                    echo '🧪 Validating potential impact of deletion using check-only deploy...'
         
-                    def deployDir = 'destructive'
+                    withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                        def deployDir = 'destructive' // Folder containing package.xml and destructiveChanges.xml
         
-                    def output = bat(
-                        script: """
-                            @echo on
+                        def output = bat(
+                            script: """
+                                @echo on
         
-                            echo "🔁 Step 1: Preparing MDAPI format for deployment..."
-                            mkdir mdapi_output
-                            xcopy /E /I /Y ${deployDir} mdapi_output
+                                echo ">> Starting dry-run deploy from ${deployDir}..."
+                                sf project deploy start ^
+                                    --manifest destructive/package.xml ^
+                                    --target-org ciOrg ^
+                                    --validation ^
+                                    --test-level NoTestRun ^
+                                    --json > validate_deletion_log.json
+                                echo Deploy command exited with errorlevel: %ERRORLEVEL%
+                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
         
-                            echo "🔁 Step 2: Executing check-only deploy using sfdx CLI..."
-                            sfdx force:mdapi:deploy ^
-                                --deploydir mdapi_output ^
-                                --targetusername %SF_USERNAME% ^
-                                --checkonly ^
-                                --wait 10 ^
-                                --loglevel fatal
-                            echo Deploy command exited with errorlevel: %ERRORLEVEL%
-                            if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
+                                echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
+                            """,
+                            returnStdout: true
+                        ).trim()
         
-                            echo "✅ Deletion validation completed successfully."
-                        """,
-                        returnStdout: true
-                    ).trim()
+                        echo "🔍 Deploy command output:\n${output}"
         
-                    echo "🔍 Deploy command raw output:\n${output}"
+                        // Read and parse the JSON log
+                        def validationLog = readJSON file: 'validate_deletion_log.json'
+        
+                        // Extract status
+                        def status = validationLog?.result?.status ?: 'UNKNOWN'
+                        echo "🔍 Validation status: ${status}"
+        
+                        if (status != 'Succeeded') {
+                            echo "❌ Deployment validation failed. Parsing errors..."
+        
+                            def failures = validationLog?.result?.details?.componentFailures ?: []
+                            if (failures.size() == 0) {
+                                echo "No componentFailures found, dumping full message:"
+                                echo validationLog?.result?.message ?: 'No message in JSON'
+                            } else {
+                                failures.each { failure ->
+                                    echo "Component failure in ${failure?.fileName ?: failure?.fullName ?: 'unknown'}"
+                                    echo "  Problem: ${failure?.problem ?: 'No problem detail'}"
+                                    echo "  ErrorType: ${failure?.errorType ?: 'Unknown'}"
+                                }
+                            }
+        
+                            error "Deployment validation failed, aborting pipeline."
+                        } else {
+                            echo "✅ Deployment validation succeeded, safe to proceed."
+                        }
+                    }
                 }
             }
         }
-        */
-    
+
+        /*    
         stage('🔍 Step 0: Validate Deletion Readiness') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -111,7 +136,7 @@ pipeline {
                 }
             }
         }
-        /*
+        
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
