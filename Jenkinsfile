@@ -36,7 +36,7 @@ pipeline {
                 }
             }
         }
-
+        /*
         stage('🔍 Step 0: Validate Deletion Readiness') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -74,8 +74,8 @@ pipeline {
                 }
             }
         }
-
-        /*
+        */
+    
         stage('🔍 Step 0: Validate Deletion Readiness') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -86,24 +86,11 @@ pipeline {
         
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                         def deployDir = 'destructive' // Folder containing package.xml and destructiveChanges.xml
-                        def logFileName = 'validate_deletion_log.json'
-        
+                               
                         def output = bat(
                             script: """
                                 @echo on
-                        
-                                echo ">> ✅ Entered Deletion Validation Stage from GitHub Jenkinsfile"
-                        
-                                sf org login jwt ^
-                                    --client-id %CONSUMER_KEY% ^
-                                    --username %SF_USERNAME% ^
-                                    --jwt-key-file "%JWT_KEY%" ^
-                                    --alias ciOrg ^
-                                    --set-default ^
-                                    --no-prompt
-                                echo Login command exited with errorlevel: %ERRORLEVEL%
-                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-                        
+                                
                                 echo ">> Starting dry-run deploy from ${deployDir}..."
                                 sf project deploy start ^
                                     --manifest destructive/package.xml ^
@@ -120,24 +107,11 @@ pipeline {
                         ).trim()
         
                         echo "🔍 Deploy command output:\n${output}"
-        
-                        if (fileExists(logFileName)) {
-                            def deployResult = readJSON file: logFileName
-                            echo "📄 Full deploy JSON output:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(deployResult))}"
-        
-                            if (deployResult.status != 0) {
-                                error "❌ Validation failed. Deletion would cause errors or dependency issues."
-                            } else {
-                                echo '✅ Validation passed. No critical dependencies found for deletion.'
-                            }
-                        } else {
-                            error "❌ Validation log file ${logFileName} not found. Deploy command may have failed."
-                        }
                     }
                 }
             }
         }
-    
+        /*
         stage('🔐 Step 1: Retrieve Metadata (Backup)') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
