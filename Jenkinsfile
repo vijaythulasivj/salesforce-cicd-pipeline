@@ -55,7 +55,7 @@ pipeline {
                             echo >> Starting validation dry-run...
                             sf project deploy start ^
                                 --manifest destructive\\package.xml ^
-                                --target-org myAlias ^  REM use your actual alias here
+                                --target-org myAlias ^  
                                 --validation ^
                                 --test-level NoTestRun ^
                                 --json
