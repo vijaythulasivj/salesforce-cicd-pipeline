@@ -51,7 +51,7 @@ pipeline {
                         def output = bat(
                             script: """
                                 @echo on
-                        
+        
                                 echo ">> Starting dry-run deploy from ${deployDir}..."
                                 sf project deploy start ^
                                     --manifest destructive/package.xml ^
@@ -61,7 +61,7 @@ pipeline {
                                     --json > validate_deletion_log.json 2>&1
                                 echo Deploy command exited with errorlevel: %ERRORLEVEL%
                                 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-                        
+        
                                 echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
                             returnStdout: true
@@ -69,31 +69,16 @@ pipeline {
         
                         echo "🔍 Deploy command output:\n${output}"
         
-                        // Read and parse the JSON log
-                        def validationLog = readJSON file: 'validate_deletion_log.json'
+                        // Now, read and print the actual JSON file content to see what's inside
+                        def rawJson = readFile('validate_deletion_log.json').trim()
+                        echo "🔍 Contents of validate_deletion_log.json:\n${rawJson}"
         
-                        // Extract status
-                        def status = validationLog?.result?.status ?: 'UNKNOWN'
-                        echo "🔍 Validation status: ${status}"
-        
-                        if (status != 'Succeeded') {
-                            echo "❌ Deployment validation failed. Parsing errors..."
-        
-                            def failures = validationLog?.result?.details?.componentFailures ?: []
-                            if (failures.size() == 0) {
-                                echo "No componentFailures found, dumping full message:"
-                                echo validationLog?.result?.message ?: 'No message in JSON'
-                            } else {
-                                failures.each { failure ->
-                                    echo "Component failure in ${failure?.fileName ?: failure?.fullName ?: 'unknown'}"
-                                    echo "  Problem: ${failure?.problem ?: 'No problem detail'}"
-                                    echo "  ErrorType: ${failure?.errorType ?: 'Unknown'}"
-                                }
-                            }
-        
-                            error "Deployment validation failed, aborting pipeline."
-                        } else {
-                            echo "✅ Deployment validation succeeded, safe to proceed."
+                        // Optional: parse JSON if valid
+                        try {
+                            def parsedJson = readJSON(text: rawJson)
+                            echo "🔍 Parsed JSON keys: ${parsedJson.keySet()}"
+                        } catch (Exception e) {
+                            echo "⚠️ Failed to parse validate_deletion_log.json as JSON: ${e.message}"
                         }
                     }
                 }
