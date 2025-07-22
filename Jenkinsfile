@@ -51,17 +51,17 @@ pipeline {
                         def output = bat(
                             script: """
                                 @echo on
-        
+                        
                                 echo ">> Starting dry-run deploy from ${deployDir}..."
                                 sf project deploy start ^
                                     --manifest destructive/package.xml ^
                                     --target-org ciOrg ^
                                     --validation ^
                                     --test-level NoTestRun ^
-                                    --json > validate_deletion_log.json
+                                    --json > validate_deletion_log.json 2>&1
                                 echo Deploy command exited with errorlevel: %ERRORLEVEL%
                                 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-        
+                        
                                 echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
                             """,
                             returnStdout: true
