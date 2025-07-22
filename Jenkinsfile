@@ -52,22 +52,22 @@ pipeline {
                         def output = bat(
                             script: """
                                 @echo off
-                                echo ">> Starting dry-run deploy from ${deployDir}..."
-        
+                                echo ">> Starting dry-run deploy from destructive..."
+                                
                                 sf project deploy start ^
-                                    --manifest ${deployDir}/package.xml ^
+                                    --manifest destructive/package.xml ^
                                     --target-org ciOrg ^
                                     --validation ^
                                     --test-level NoTestRun ^
                                     --json > validate_deletion_log.json 2>&1
-        
+                            
                                 set ERR=%ERRORLEVEL%
                                 echo ExitCode=%ERR% > exitcode.txt
-        
+                            
                                 echo ">> Dry-run deploy finished with exit code %ERR%"
-                                echo ">> JSON Output:"
+                                echo ">> Deploy JSON output:"
                                 type validate_deletion_log.json
-        
+                            
                                 exit /b %ERR%
                             """,
                             returnStdout: true
