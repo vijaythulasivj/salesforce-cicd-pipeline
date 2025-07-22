@@ -46,7 +46,6 @@ pipeline {
         
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                         def deployDir = 'destructive'
-                        def logFileName = 'validate_deletion_log.json'
         
                         def output = bat(
                             script: """
@@ -60,55 +59,30 @@ pipeline {
                                     --instance-url https://test.salesforce.com ^
                                     --set-default ^
                                     --no-prompt
-                                echo 🔄 Auth Step Exit Code: %ERRORLEVEL%
-                                if %ERRORLEVEL% NEQ 0 (
-                                    echo ❌ Auth failed.
-                                    exit /b %ERRORLEVEL%
-                                )
+                                echo Auth command exited with errorlevel: %ERRORLEVEL%
+                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
         
-                                echo "🔁 Step 2: Converting to MDAPI format (sfdx convert)..."
-                                sfdx force:source:convert ^
-                                    --rootdir destructive ^
-                                    --outputdir mdapi_output
-                                echo 🔄 Convert Step Exit Code: %ERRORLEVEL%
-                                if %ERRORLEVEL% NEQ 0 (
-                                    echo ❌ Conversion failed.
-                                    exit /b %ERRORLEVEL%
-                                )
+                                echo "🔁 Step 2: Preparing MDAPI format for deployment..."
+                                mkdir mdapi_output
+                                copy destructive\\* mdapi_output\\
         
-                                echo "🔁 Step 3: Deploying with sfdx (check-only)..."
+                                echo "🔁 Step 3: Executing check-only deploy using sfdx CLI..."
                                 sfdx force:mdapi:deploy ^
                                     --deploydir mdapi_output ^
                                     --targetusername %SF_USERNAME% ^
                                     --checkonly ^
                                     --wait 10 ^
-                                    --json ^
-                                    --loglevel fatal > validate_deletion_log.json
-                                echo 🔄 Deploy Step Exit Code: %ERRORLEVEL%
-                                if %ERRORLEVEL% NEQ 0 (
-                                    echo ❌ Deploy failed.
-                                    exit /b %ERRORLEVEL%
-                                )
+                                    --loglevel fatal
         
-                                echo "✅ All steps completed in Deletion Validation stage."
+                                echo Deploy command exited with errorlevel: %ERRORLEVEL%
+                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
+        
+                                echo "✅ Deletion validation completed successfully."
                             """,
                             returnStdout: true
                         ).trim()
         
                         echo "🔍 Deploy command raw output:\n${output}"
-        
-                        if (fileExists(logFileName)) {
-                            def deployResult = readJSON file: logFileName
-                            echo "📄 Full deploy JSON output:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(deployResult))}"
-        
-                            if (deployResult.status != 0) {
-                                error "❌ Validation failed. Deletion would cause errors or dependency issues."
-                            } else {
-                                echo '✅ Validation passed. No critical dependencies found for deletion.'
-                            }
-                        } else {
-                            error "❌ Validation log file ${logFileName} not found. Deploy command may have failed."
-                        }
                     }
                 }
             }
