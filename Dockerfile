@@ -5,10 +5,13 @@ FROM node:18
 RUN apt-get update && apt-get install -y bash curl git && rm -rf /var/lib/apt/lists/*
 
 # Install Salesforce CLI (sf)
-RUN npm install -g @salesforce/cli
+RUN npm install -g @salesforce/cli sfdx-cli
 
 # Verify SF CLI
 RUN sf --version 
+
+# Verify SFDX CLI
+RUN sfdx --version
 
 # Set working directory
 WORKDIR /app
