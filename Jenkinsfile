@@ -48,6 +48,7 @@ pipeline {
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                         def deployDir = 'destructive' // Folder containing package.xml and destructiveChanges.xml
         
+                        // Run the validation deploy, capturing output to JSON file
                         def output = bat(
                             script: """
                                 @echo on
@@ -62,25 +63,44 @@ pipeline {
                                 echo Deploy command exited with errorlevel: %ERRORLEVEL%
                                 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
         
-                                echo ">> ✅ Exited Deletion Validation Stage from GitHub Jenkinsfile"
+                                echo ">> ✅ Exited Deletion Validation Stage from Jenkinsfile"
                             """,
                             returnStdout: true
                         ).trim()
         
-                        echo "🔍 Deploy command output:\n${output}"
+                        echo "🔍 Deploy command output (bat stdout/stderr):\n${output}"
         
-                        if (fileExists('validate_deletion_log.json')) {
-                            def rawJson = readFile('validate_deletion_log.json').trim()
-                            echo "🔍 Contents of validate_deletion_log.json:\n${rawJson}"
+                        // Read the JSON output file content
+                        def rawJson = readFile('validate_deletion_log.json').trim()
+                        echo "🔍 Contents of validate_deletion_log.json:\n${rawJson}"
         
-                            try {
-                                def parsedJson = readJSON(text: rawJson)
-                                echo "🔍 Parsed JSON keys: ${parsedJson.keySet()}"
-                            } catch (Exception e) {
-                                echo "⚠️ Failed to parse validate_deletion_log.json as JSON: ${e.message}"
+                        // Parse JSON and check validation status
+                        def parsedJson = null
+                        try {
+                            parsedJson = readJSON(text: rawJson)
+                        } catch (Exception e) {
+                            error("⚠️ Failed to parse validate_deletion_log.json as JSON: ${e.message}")
+                        }
+        
+                        // Inspect the JSON for errors or failures
+                        // Salesforce CLI JSON usually contains a 'status' and 'result' field
+                        if (parsedJson.status != 0) {
+                            // Try to extract errors from JSON
+                            def errors = []
+                            if (parsedJson.result?.details?.componentFailures) {
+                                errors = parsedJson.result.details.componentFailures.collect { it.problem }
+                            } else if (parsedJson.result?.errors) {
+                                errors = parsedJson.result.errors
                             }
+        
+                            def errorMsg = "❌ Deployment validation failed with status ${parsedJson.status}."
+                            if (errors.size() > 0) {
+                                errorMsg += "\nErrors found:\n - " + errors.join("\n - ")
+                            }
+        
+                            error(errorMsg)
                         } else {
-                            error "❌ validate_deletion_log.json file does not exist after deploy command!"
+                            echo "✅ Validation succeeded with status 0, no errors found."
                         }
                     }
                 }
