@@ -54,11 +54,12 @@ pipeline {
                   @echo off
                   echo >> Starting validation dry-run...
                   sf project deploy start ^
-                    --manifest destructive\\package.xml ^
-                    --target-org ciOrg ^
-                    --validation ^
-                    --test-level NoTestRun ^
-                    --json
+                      --manifest destructive\\package.xml ^
+                      --target-org myAlias ^  ← make sure this matches your actual alias
+                      --validation ^
+                      --test-level NoTestRun ^
+                      --json
+
                   echo >> End of dry-run CLI output
                 """,
                 returnStdout: true
