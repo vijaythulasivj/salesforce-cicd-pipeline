@@ -50,7 +50,7 @@ pipeline {
         
                         // Run the deploy but DON'T exit immediately on error — capture exit code instead
                         bat """
-                            @echo on
+                            @echo off
                             echo ">> Starting dry-run deploy from ${deployDir}..."
                             sf project deploy start ^
                                 --manifest destructive/package.xml ^
@@ -58,8 +58,15 @@ pipeline {
                                 --validation ^
                                 --test-level NoTestRun ^
                                 --json > validate_deletion_log.json 2>&1
-                            echo ExitCode=%ERRORLEVEL% > exitcode.txt
-                            echo ">> Dry-run deploy finished"
+                        
+                            REM Capture exit code but DO NOT exit immediately
+                            set ERR=%ERRORLEVEL%
+                            echo ExitCode=%ERR% > exitcode.txt
+                        
+                            echo ">> Dry-run deploy finished with exit code %ERR%"
+                        
+                            REM exit with captured error code so Jenkins can read it if needed
+                            exit /b %ERR%
                         """
         
                         // Read the exit code saved by batch script
