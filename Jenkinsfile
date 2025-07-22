@@ -46,35 +46,32 @@ pipeline {
                     echo '🧪 Validating potential impact of deletion using check-only deploy...'
         
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                        def deployDir = 'destructive' // Folder containing package.xml and destructiveChanges.xml
+                        def deployDir = 'destructive'
         
-                        // Run the validation deploy, capturing output to JSON file
-                        def output = bat(
-                            script: """
-                                @echo on
+                        // Run the deploy but DON'T exit immediately on error — capture exit code instead
+                        bat """
+                            @echo on
+                            echo ">> Starting dry-run deploy from ${deployDir}..."
+                            sf project deploy start ^
+                                --manifest destructive/package.xml ^
+                                --target-org ciOrg ^
+                                --validation ^
+                                --test-level NoTestRun ^
+                                --json > validate_deletion_log.json 2>&1
+                            echo ExitCode=%ERRORLEVEL% > exitcode.txt
+                            echo ">> Dry-run deploy finished"
+                        """
         
-                                echo ">> Starting dry-run deploy from ${deployDir}..."
-                                sf project deploy start ^
-                                    --manifest destructive/package.xml ^
-                                    --target-org ciOrg ^
-                                    --validation ^
-                                    --test-level NoTestRun ^
-                                    --json > validate_deletion_log.json 2>&1
-                                echo Deploy command exited with errorlevel: %ERRORLEVEL%
-                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
+                        // Read the exit code saved by batch script
+                        def exitCodeText = readFile('exitcode.txt').trim()
+                        def exitCode = exitCodeText.replace('ExitCode=', '') as Integer
         
-                                echo ">> ✅ Exited Deletion Validation Stage from Jenkinsfile"
-                            """,
-                            returnStdout: true
-                        ).trim()
-        
-                        echo "🔍 Deploy command output (bat stdout/stderr):\n${output}"
+                        echo "🔍 Deploy command exit code: ${exitCode}"
         
                         // Read the JSON output file content
                         def rawJson = readFile('validate_deletion_log.json').trim()
                         echo "🔍 Contents of validate_deletion_log.json:\n${rawJson}"
         
-                        // Parse JSON and check validation status
                         def parsedJson = null
                         try {
                             parsedJson = readJSON(text: rawJson)
@@ -82,10 +79,7 @@ pipeline {
                             error("⚠️ Failed to parse validate_deletion_log.json as JSON: ${e.message}")
                         }
         
-                        // Inspect the JSON for errors or failures
-                        // Salesforce CLI JSON usually contains a 'status' and 'result' field
-                        if (parsedJson.status != 0) {
-                            // Try to extract errors from JSON
+                        if (exitCode != 0 || parsedJson.status != 0) {
                             def errors = []
                             if (parsedJson.result?.details?.componentFailures) {
                                 errors = parsedJson.result.details.componentFailures.collect { it.problem }
@@ -93,14 +87,13 @@ pipeline {
                                 errors = parsedJson.result.errors
                             }
         
-                            def errorMsg = "❌ Deployment validation failed with status ${parsedJson.status}."
+                            def errorMsg = "❌ Deployment validation failed with exit code ${exitCode} and status ${parsedJson.status}."
                             if (errors.size() > 0) {
                                 errorMsg += "\nErrors found:\n - " + errors.join("\n - ")
                             }
-        
                             error(errorMsg)
                         } else {
-                            echo "✅ Validation succeeded with status 0, no errors found."
+                            echo "✅ Validation succeeded with exit code 0 and status 0, no errors found."
                         }
                     }
                 }
