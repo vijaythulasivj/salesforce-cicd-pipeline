@@ -69,16 +69,18 @@ pipeline {
         
                         echo "🔍 Deploy command output:\n${output}"
         
-                        // Now, read and print the actual JSON file content to see what's inside
-                        def rawJson = readFile('validate_deletion_log.json').trim()
-                        echo "🔍 Contents of validate_deletion_log.json:\n${rawJson}"
+                        if (fileExists('validate_deletion_log.json')) {
+                            def rawJson = readFile('validate_deletion_log.json').trim()
+                            echo "🔍 Contents of validate_deletion_log.json:\n${rawJson}"
         
-                        // Optional: parse JSON if valid
-                        try {
-                            def parsedJson = readJSON(text: rawJson)
-                            echo "🔍 Parsed JSON keys: ${parsedJson.keySet()}"
-                        } catch (Exception e) {
-                            echo "⚠️ Failed to parse validate_deletion_log.json as JSON: ${e.message}"
+                            try {
+                                def parsedJson = readJSON(text: rawJson)
+                                echo "🔍 Parsed JSON keys: ${parsedJson.keySet()}"
+                            } catch (Exception e) {
+                                echo "⚠️ Failed to parse validate_deletion_log.json as JSON: ${e.message}"
+                            }
+                        } else {
+                            error "❌ validate_deletion_log.json file does not exist after deploy command!"
                         }
                     }
                 }
