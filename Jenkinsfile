@@ -48,40 +48,38 @@ pipeline {
                         def deployDir = 'destructive'
         
                         def output = bat(
-                            script: """
-                                @echo on
-        
-                                echo "🔁 Step 1: Authenticating using sf CLI..."
-                                sf auth jwt grant ^
-                                    --client-id %CONSUMER_KEY% ^
-                                    --jwt-key-file "%JWT_KEY%" ^
-                                    --username %SF_USERNAME% ^
-                                    --instance-url https://test.salesforce.com ^
-                                    --set-default ^
-                                    --no-prompt
-                                echo Auth command exited with errorlevel: %ERRORLEVEL%
-                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-        
-                                echo "🔁 Step 2: Preparing MDAPI format for deployment..."
-                                mkdir mdapi_output
-                                copy destructive\\* mdapi_output\\
-        
-                                echo "🔁 Step 3: Executing check-only deploy using sfdx CLI..."
-                                sfdx force:mdapi:deploy ^
-                                    --deploydir mdapi_output ^
-                                    --targetusername %SF_USERNAME% ^
-                                    --checkonly ^
-                                    --wait 10 ^
-                                    --loglevel fatal
-        
-                                echo Deploy command exited with errorlevel: %ERRORLEVEL%
-                                if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-        
-                                echo "✅ Deletion validation completed successfully."
-                            """,
-                            returnStdout: true
-                        ).trim()
-        
+                        script: """
+                            @echo on
+                    
+                            echo "🔁 Step 1: Authenticating using sf CLI..."
+                            sf auth jwt grant ^
+                                --client-id %CONSUMER_KEY% ^
+                                --jwt-key-file "%JWT_KEY%" ^
+                                --username %SF_USERNAME% ^
+                                --instance-url https://test.salesforce.com ^
+                                --set-default ^
+                                --no-prompt
+                            echo Auth command exited with errorlevel: %ERRORLEVEL%
+                            if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
+                    
+                            echo "🔁 Step 2: Preparing MDAPI format for deployment..."
+                            mkdir mdapi_output
+                            xcopy /E /I /Y destructive mdapi_output
+                    
+                            echo "🔁 Step 3: Executing check-only deploy using sfdx CLI..."
+                            sfdx force:mdapi:deploy ^
+                                --deploydir mdapi_output ^
+                                --targetusername %SF_USERNAME% ^
+                                --checkonly ^
+                                --wait 10 ^
+                                --loglevel fatal
+                            echo Deploy command exited with errorlevel: %ERRORLEVEL%
+                            if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
+                    
+                            echo "✅ Deletion validation completed successfully."
+                        """,
+                        returnStdout: true
+                    ).trim()        
                         echo "🔍 Deploy command raw output:\n${output}"
                     }
                 }
