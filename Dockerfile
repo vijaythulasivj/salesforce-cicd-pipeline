@@ -5,7 +5,10 @@ FROM node:18
 RUN apt-get update && apt-get install -y bash curl git && rm -rf /var/lib/apt/lists/*
 
 # Install Salesforce CLI (sf)
-RUN npm install -g @salesforce/cli sfdx-cli
+RUN npm install -g @salesforce/cli 
+
+# Install legacy SFDX CLI (required for force:mdapi:deploy)
+RUN sf plugins install @salesforce/sfdx-plugin
 
 # Verify SF CLI
 RUN sf --version 
