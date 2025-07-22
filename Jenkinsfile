@@ -46,32 +46,35 @@ pipeline {
                     echo '🧪 Validating potential impact of deletion using check-only deploy...'
         
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                        def deployDir = 'destructive'
+                        bat """
+                            @echo off
+                            echo ">> Starting dry-run deploy from destructive..."
         
-                        // Run dry-run deploy and show raw output
-                        def output = bat(
-                            script: """
-                                @echo off
-                                echo ">> Starting dry-run deploy from ${deployDir}..."
+                            sf project deploy start ^
+                                --manifest destructive\\package.xml ^
+                                --target-org ciOrg ^
+                                --validation ^
+                                --test-level NoTestRun ^
+                                --json > validate_deletion_log.json 2>&1
         
-                                sf project deploy start ^
-                                    --manifest ${deployDir}\\package.xml ^
-                                    --target-org ciOrg ^
-                                    --validation ^
-                                    --test-level NoTestRun ^
-                                    --json > validate_deletion_log.json 2>&1
+                            set ERR=%ERRORLEVEL%
+                            echo ExitCode=%ERR% > exitcode.txt
         
-                                echo ">> Raw deploy output:"
-                                type validate_deletion_log.json
+                            echo ">> Contents of validate_deletion_log.json:"
+                            type validate_deletion_log.json
         
-                                REM Always return 0 so the stage doesn't fail yet
-                                exit /b 0
-                            """,
-                            returnStdout: true
-                        ).trim()
-        
-                        echo "🔍 CLI Output:\n${output}"
+                            echo ">> Finished deploy with exit code: %ERR%"
+                            exit /b %ERR%
+                        """
                     }
+        
+                    // Show deploy output and exit code in Jenkins
+                    def jsonOutput = readFile('validate_deletion_log.json').trim()
+                    def exitCodeText = readFile('exitcode.txt').trim()
+                    def exitCode = exitCodeText.replace('ExitCode=', '').toInteger()
+        
+                    echo "🔍 Deploy CLI returned exit code: ${exitCode}"
+                    echo "📄 Deploy JSON output:\n${jsonOutput}"
                 }
             }
         }
