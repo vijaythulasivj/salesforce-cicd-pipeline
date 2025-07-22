@@ -7,10 +7,12 @@ RUN apt-get update && apt-get install -y bash curl git && rm -rf /var/lib/apt/li
 # Install Salesforce CLI (sf)
 RUN npm install -g @salesforce/cli 
 
-# Install legacy Salesforce CLI ("sfdx")
-RUN curl -sL https://developer.salesforce.com/media/salesforce-cli/sfdx-linux-x64.tar.xz | tar xJ && \
+# Download and install legacy Salesforce CLI (sfdx)
+RUN curl -Lo sfdx.tar.xz https://developer.salesforce.com/media/salesforce-cli/sfdx-linux-x64.tar.xz && \
+    tar -xf sfdx.tar.xz && \
     ./sfdx/install && \
-    rm -rf sfdx
+    rm -rf sfdx sfdx.tar.xz
+
 
 # Verify SF CLI
 RUN sf --version 
