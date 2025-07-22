@@ -51,9 +51,9 @@ pipeline {
                         def output = bat(
                             script: """
                                 @echo on
-        
+                        
                                 echo ">> ✅ Entered Deletion Validation Stage - Auth with sf CLI, Deploy with sfdx CLI"
-        
+                        
                                 :: Authenticate with sf CLI
                                 sf auth jwt grant ^
                                     --client-id %CONSUMER_KEY% ^
@@ -64,19 +64,23 @@ pipeline {
                                     --no-prompt
                                 echo Auth command exited with errorlevel: %ERRORLEVEL%
                                 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-        
-                                echo ">> Starting dry-run deploy from ${deployDir} using sfdx CLI..."
-        
-                                :: Deploy validation with sfdx CLI (using the same authenticated username)
-                                sfdx force:source:deploy ^
-                                    --manifest destructive/package.xml ^
+                        
+                                :: Convert source to MDAPI format (sfdx destructive deploy needs MDAPI)
+                                sfdx force:source:convert ^
+                                    --rootdir destructive ^
+                                    --outputdir mdapi_output
+                        
+                                :: Check-only deploy using sfdx CLI (for destructive changes)
+                                sfdx force:mdapi:deploy ^
+                                    --deploydir mdapi_output ^
                                     --targetusername %SF_USERNAME% ^
                                     --checkonly ^
-                                    --testlevel NoTestRun ^
-                                    --json > ${logFileName}
+                                    --wait 10 ^
+                                    --json ^
+                                    --loglevel fatal > validate_deletion_log.json
                                 echo Deploy command exited with errorlevel: %ERRORLEVEL%
                                 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-        
+                        
                                 echo ">> ✅ Exited Deletion Validation Stage"
                             """,
                             returnStdout: true
