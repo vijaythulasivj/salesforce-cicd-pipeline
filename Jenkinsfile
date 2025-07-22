@@ -20,7 +20,7 @@ pipeline {
             }
         }
 
-        stage('Authenticate Salesforce') {
+        stage('Authenticate Salesforce') { 
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                     bat """
@@ -29,6 +29,7 @@ pipeline {
                             --jwt-key-file "%JWT_KEY%" ^
                             --username %SF_USERNAME% ^
                             --instance-url https://test.salesforce.com ^
+                            --alias myAlias ^
                             --set-default ^
                             --no-prompt
                     """
@@ -38,38 +39,36 @@ pipeline {
         }
 
         stage('🔍 Step 0: Validate CLI Execution') {
-          when { expression { !params.REDEPLOY_METADATA } }
-          steps {
-            script {
-              echo '🔧 Checking that sf CLI runs and prints version...'
+            when { expression { !params.REDEPLOY_METADATA } }
+            steps {
+                script {
+                    echo '🔧 Checking that sf CLI runs and prints version...'
         
-              // Run a simple sf command to ensure it's installed and output is visible
-              def versionOutput = bat(script: 'sf --version', returnStdout: true).trim()
-              echo "📦 sf CLI version output:\n${versionOutput}"
+                    def versionOutput = bat(script: 'sf --version', returnStdout: true).trim()
+                    echo "📦 sf CLI version output:\n${versionOutput}"
         
-              echo '🔧 Checking deploy command prints something:'
-              
-              def dryRunOutput = bat(
-                script: """
-                  @echo off
-                  echo >> Starting validation dry-run...
-                  sf project deploy start ^
-                      --manifest destructive\\package.xml ^
-                      --target-org myAlias ^  ← make sure this matches your actual alias
-                      --validation ^
-                      --test-level NoTestRun ^
-                      --json
-
-                  echo >> End of dry-run CLI output
-                """,
-                returnStdout: true
-              ).trim()
+                    echo '🔧 Checking deploy command prints something:'
         
-              echo "🖨️ Raw deploy output:\n${dryRunOutput}"
+                    def dryRunOutput = bat(
+                        script: """
+                            @echo off
+                            echo >> Starting validation dry-run...
+                            sf project deploy start ^
+                                --manifest destructive\\package.xml ^
+                                --target-org myAlias ^  REM use your actual alias here
+                                --validation ^
+                                --test-level NoTestRun ^
+                                --json
+        
+                            echo >> End of dry-run CLI output
+                        """,
+                        returnStdout: true
+                    ).trim()
+        
+                    echo "🖨️ Raw deploy output:\n${dryRunOutput}"
+                }
             }
-          }
         }
-
         /*    
         stage('🔍 Step 0: Validate Deletion Readiness') {
             when {
