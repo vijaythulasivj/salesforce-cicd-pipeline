@@ -37,46 +37,36 @@ pipeline {
             }
         }
 
-        stage('🔍 Step 0: Validate Deletion Readiness') {
-            when {
-                expression { return !params.REDEPLOY_METADATA }
+        stage('🔍 Step 0: Validate CLI Execution') {
+          when { expression { !params.REDEPLOY_METADATA } }
+          steps {
+            script {
+              echo '🔧 Checking that sf CLI runs and prints version...'
+        
+              // Run a simple sf command to ensure it's installed and output is visible
+              def versionOutput = bat(script: 'sf --version', returnStdout: true).trim()
+              echo "📦 sf CLI version output:\n${versionOutput}"
+        
+              echo '🔧 Checking deploy command prints something:'
+              
+              def dryRunOutput = bat(
+                script: """
+                  @echo off
+                  echo >> Starting validation dry-run...
+                  sf project deploy start ^
+                    --manifest destructive\\package.xml ^
+                    --target-org ciOrg ^
+                    --validation ^
+                    --test-level NoTestRun ^
+                    --json
+                  echo >> End of dry-run CLI output
+                """,
+                returnStdout: true
+              ).trim()
+        
+              echo "🖨️ Raw deploy output:\n${dryRunOutput}"
             }
-            steps {
-                script {
-                    echo '🧪 Validating potential impact of deletion using check-only deploy...'
-        
-                    withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                        bat """
-                            @echo off
-                            echo ">> Starting dry-run deploy from destructive..."
-        
-                            sf project deploy start ^
-                                --manifest destructive\\package.xml ^
-                                --target-org ciOrg ^
-                                --validation ^
-                                --test-level NoTestRun ^
-                                --json > validate_deletion_log.json 2>&1
-        
-                            set ERR=%ERRORLEVEL%
-                            echo ExitCode=%ERR% > exitcode.txt
-        
-                            echo ">> Contents of validate_deletion_log.json:"
-                            type validate_deletion_log.json
-        
-                            echo ">> Finished deploy with exit code: %ERR%"
-                            exit /b %ERR%
-                        """
-                    }
-        
-                    // Show deploy output and exit code in Jenkins
-                    def jsonOutput = readFile('validate_deletion_log.json').trim()
-                    def exitCodeText = readFile('exitcode.txt').trim()
-                    def exitCode = exitCodeText.replace('ExitCode=', '').toInteger()
-        
-                    echo "🔍 Deploy CLI returned exit code: ${exitCode}"
-                    echo "📄 Deploy JSON output:\n${jsonOutput}"
-                }
-            }
+          }
         }
 
         /*    
