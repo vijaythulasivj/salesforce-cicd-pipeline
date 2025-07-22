@@ -7,8 +7,10 @@ RUN apt-get update && apt-get install -y bash curl git && rm -rf /var/lib/apt/li
 # Install Salesforce CLI (sf)
 RUN npm install -g @salesforce/cli 
 
-# Install legacy SFDX CLI (required for force:mdapi:deploy)
-RUN sf plugins install @salesforce/sfdx-plugin
+# Install legacy Salesforce CLI ("sfdx")
+RUN curl -sL https://developer.salesforce.com/media/salesforce-cli/sfdx-linux-x64.tar.xz | tar xJ && \
+    ./sfdx/install && \
+    rm -rf sfdx
 
 # Verify SF CLI
 RUN sf --version 
