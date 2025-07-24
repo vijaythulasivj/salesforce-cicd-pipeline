@@ -215,6 +215,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
+                    // Build the salesforce CLI Docker image from Dockerfile in workspace
                     docker.build('salesforce-cli:latest')
                 }
             }
@@ -223,16 +224,16 @@ pipeline {
         stage('Authenticate Salesforce') {
             steps {
                 script {
-                    // Convert Windows workspace path to Linux style for Docker volume mount
+                    // Convert Windows workspace path to Docker-compatible path (Unix style)
                     def workspaceWinPath = env.WORKSPACE.replaceAll('\\\\', '/')
                     def containerWorkspace = '/ws'
 
                     withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY_FILE')]) {
-                        // JWT key on host Windows machine
+                        // Convert JWT key path for Docker mount
                         def jwtKeyHostPath = env.JWT_KEY_FILE.replaceAll('\\\\', '/')
                         def jwtKeyContainerPath = '/tmp/jwt_key.pem'
 
-                        // Run container with explicit mounts and working dir
+                        // Run container with mounts and working directory
                         def container = docker.image('salesforce-cli:latest').run(
                             "-v ${workspaceWinPath}:${containerWorkspace} " +
                             "-v ${jwtKeyHostPath}:${jwtKeyContainerPath} " +
@@ -240,6 +241,7 @@ pipeline {
                         )
 
                         try {
+                            // Execute the Salesforce CLI JWT auth command inside the running container
                             container.exec([
                                 'sf', 'auth', 'jwt', 'grant',
                                 '--client-id', CONSUMER_KEY,
@@ -252,6 +254,7 @@ pipeline {
                             ])
                             echo "✅ Authenticated successfully."
                         } finally {
+                            // Clean up the container after the command completes
                             container.stop()
                             container.remove()
                         }
@@ -273,11 +276,14 @@ pipeline {
 
                     try {
                         echo '🔧 Checking that sf CLI runs and prints version...'
+
+                        // Run sf --version and capture output
                         def versionOutput = container.exec(['sf', '--version']).trim()
                         echo "📦 sf CLI version output:\n${versionOutput}"
 
                         echo '🔧 Checking deploy command prints something:'
 
+                        // Run the deploy validation dry-run inside container shell
                         def dryRunOutput = container.exec([
                             'sh', '-c',
                             '''set -e
@@ -301,9 +307,10 @@ pipeline {
             }
         }
 
-        // Wrap other stages similarly as needed...
+        // Add additional stages here, following same container lifecycle pattern
     }
 }
+
 
 
 
