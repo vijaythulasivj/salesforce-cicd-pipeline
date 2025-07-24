@@ -56,7 +56,7 @@ pipeline {
                             sf deploy metadata validate ^
                                 --manifest destructive/package.xml ^
                                 --target-org myAlias ^
-                                --test-level NoTestRun ^
+                                --test-level RunSpecifiedTests ^
                                 --json
         
                             echo >> End of dry-run CLI output
