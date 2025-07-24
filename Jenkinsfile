@@ -1,4 +1,4 @@
-/*
+
 pipeline {
     agent any
 
@@ -196,102 +196,6 @@ pipeline {
                 }
             }
         }
+        */
     }
 }
-*/
-pipeline {
-    agent any
-
-    environment {
-        CONSUMER_KEY = credentials('sf-consumer-key')
-        SF_USERNAME = credentials('sf-username')
-    }
-
-    parameters {
-        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
-    }
-
-    stages {
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    docker.build('salesforce-cli:latest')
-                }
-            }
-        }
-
-        stage('Authenticate Salesforce') {
-            steps {
-                script {
-                    def workspaceWinPath = env.WORKSPACE.replaceAll('\\\\', '/')
-                    def containerWorkspace = '/ws'
-
-                    withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY_FILE')]) {
-                        def jwtKeyHostPath = env.JWT_KEY_FILE.replaceAll('\\\\', '/')
-                        def jwtKeyContainerPath = '/tmp/jwt_key.pem'
-
-                        // Use inside() instead of run()
-                        docker.image('salesforce-cli:latest').inside(
-                            "-v ${workspaceWinPath}:${containerWorkspace} " +
-                            "-v ${jwtKeyHostPath}:${jwtKeyContainerPath} " +
-                            "-w ${containerWorkspace}"
-                        ) {
-                            sh """
-                                sf auth jwt grant \
-                                    --client-id ${CONSUMER_KEY} \
-                                    --jwt-key-file ${jwtKeyContainerPath} \
-                                    --username ${SF_USERNAME} \
-                                    --instance-url https://test.salesforce.com \
-                                    --alias myAlias \
-                                    --set-default \
-                                    --no-prompt
-                            """
-                            echo "✅ Authenticated successfully."
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('🔍 Step 0: Validate CLI Execution') {
-            when { expression { !params.REDEPLOY_METADATA } }
-            steps {
-                script {
-                    def workspaceWinPath = env.WORKSPACE.replaceAll('\\\\', '/')
-                    def containerWorkspace = '/ws'
-
-                    docker.image('salesforce-cli:latest').inside(
-                        "-v ${workspaceWinPath}:${containerWorkspace} -w ${containerWorkspace}"
-                    ) {
-                        echo '🔧 Checking that sf CLI runs and prints version...'
-                        def versionOutput = sh(script: 'sf --version', returnStdout: true).trim()
-                        echo "📦 sf CLI version output:\n${versionOutput}"
-
-                        echo '🔧 Checking deploy command prints something:'
-                        def dryRunOutput = sh(script: '''
-                            set -e
-                            echo "Starting validation dry-run..."
-                            sf deploy metadata validate \
-                                --manifest destructive/package.xml \
-                                --destructive-changes destructive/destructiveChanges.xml \
-                                --target-org myAlias \
-                                --test-level RunSpecifiedTests \
-                                --tests ASKYTightestMatchServiceImplTest \
-                                --json
-                            echo "End of dry-run CLI output"
-                        ''', returnStdout: true).trim()
-
-                        echo "🖨️ Raw deploy output:\n${dryRunOutput}"
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-
-
-
-
-
