@@ -1,4 +1,4 @@
-/*
+
 pipeline {
     agent any
 
@@ -69,7 +69,7 @@ pipeline {
                 }
             }
         }
-         
+        /*
         stage('🔍 Step 0: Validate Deletion Readiness') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -194,10 +194,11 @@ pipeline {
                 }
             }
         }
+        */
     }
 }
-*/
 
+/*
 pipeline {
     agent {
         docker {
@@ -265,6 +266,6 @@ pipeline {
         }
     }
 }
-
+*/
 
 
