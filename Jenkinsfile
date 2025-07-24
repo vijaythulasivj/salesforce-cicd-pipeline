@@ -223,7 +223,11 @@ pipeline {
         stage('Authenticate Salesforce') {
             steps {
                 script {
-                    docker.image('salesforce-cli:latest').inside {
+                    // Prepare Windows workspace path and Linux container path
+                    def workspaceWinPath = env.WORKSPACE.replaceAll('\\\\', '/')
+                    def containerWorkspace = '/ws'
+
+                    docker.image('salesforce-cli:latest').inside("-v ${workspaceWinPath}:${containerWorkspace} -w ${containerWorkspace}") {
                         withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                             sh """
                                 sf auth jwt grant \
@@ -246,7 +250,10 @@ pipeline {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
                 script {
-                    docker.image('salesforce-cli:latest').inside {
+                    def workspaceWinPath = env.WORKSPACE.replaceAll('\\\\', '/')
+                    def containerWorkspace = '/ws'
+
+                    docker.image('salesforce-cli:latest').inside("-v ${workspaceWinPath}:${containerWorkspace} -w ${containerWorkspace}") {
                         echo '🔧 Checking that sf CLI runs and prints version...'
                         def versionOutput = sh(script: 'sf --version', returnStdout: true).trim()
                         echo "📦 sf CLI version output:\n${versionOutput}"
@@ -272,9 +279,10 @@ pipeline {
             }
         }
 
-        // Similarly wrap other sf commands in docker.image(...).inside { ... } blocks
+        // Wrap other stages similarly
     }
 }
+
 
 
 
