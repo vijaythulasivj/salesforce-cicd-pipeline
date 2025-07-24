@@ -1,4 +1,4 @@
-
+/*
 pipeline {
     agent any
 
@@ -69,7 +69,7 @@ pipeline {
                 }
             }
         }
-        /*    
+         
         stage('🔍 Step 0: Validate Deletion Readiness') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -194,7 +194,75 @@ pipeline {
                 }
             }
         }
-        */
+    }
+}
+*/
+
+pipeline {
+    agent {
+        docker {
+            image 'salesforce-cli:latest'
+            args '-u root' // optional: run as root user
+        }
+    }
+
+    environment {
+        CONSUMER_KEY = credentials('sf-consumer-key')
+        SF_USERNAME = credentials('sf-username')
+    }
+
+    parameters {
+        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
+    }
+
+    stages {
+        stage('Authenticate Salesforce') {
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    sh '''
+                        sf auth jwt grant \
+                            --client-id $CONSUMER_KEY \
+                            --jwt-key-file "$JWT_KEY" \
+                            --username $SF_USERNAME \
+                            --instance-url https://test.salesforce.com \
+                            --alias myAlias \
+                            --set-default \
+                            --no-prompt
+                    '''
+                    echo '✅ Authenticated successfully.'
+                }
+            }
+        }
+
+        stage('🔍 Step 0: Validate CLI Execution') {
+            when { expression { !params.REDEPLOY_METADATA } }
+            steps {
+                script {
+                    echo '🔧 Checking that sf CLI runs and prints version...'
+
+                    def versionOutput = sh(script: 'sf --version', returnStdout: true).trim()
+                    echo "📦 sf CLI version output:\n${versionOutput}"
+
+                    echo '🔧 Checking deploy command prints something:'
+
+                    def dryRunOutput = sh(
+                        script: '''
+                            echo ">> Starting validation dry-run..."
+                            sf project deploy start \
+                                --manifest destructive/package.xml \
+                                --target-org myAlias \
+                                --validation \
+                                --test-level NoTestRun \
+                                --json
+                            echo ">> End of dry-run CLI output"
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "🖨️ Raw deploy output:\n${dryRunOutput}"
+                }
+            }
+        }
     }
 }
 
