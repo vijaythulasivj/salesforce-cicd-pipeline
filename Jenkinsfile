@@ -42,13 +42,17 @@ pipeline {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
                 script {
+                    // 🔧 Use the correct path to the updated Salesforce CLI
+                    def sfCmd = '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\sf\\bin\\sf.cmd"'
+        
                     echo '🔧 Checking that sf CLI runs and prints version...'
-                    
-                    // Run 'where sf' to see which sf executable Jenkins is using
+        
+                    // Just to confirm what Jenkins currently picks up (optional)
                     def sfPath = bat(script: 'where sf', returnStdout: true).trim()
                     echo "🔍 sf executable path(s):\n${sfPath}"
         
-                    def versionOutput = bat(script: 'sf --version', returnStdout: true).trim()
+                    // Use the correct CLI path for version check
+                    def versionOutput = bat(script: "${sfCmd} --version", returnStdout: true).trim()
                     echo "📦 sf CLI version output:\n${versionOutput}"
         
                     echo '🔧 Checking deploy command prints something:'
@@ -57,14 +61,13 @@ pipeline {
                         script: """
                             @echo off
                             echo >> Starting validation dry-run...
-                            sf deploy metadata validate ^
+                            ${sfCmd} deploy metadata validate ^
                                 --manifest destructive/package.xml ^
                                 --destructive-changes destructive/destructiveChanges.xml ^
                                 --target-org myAlias ^
                                 --test-level RunSpecifiedTests ^
                                 --tests ASKYTightestMatchServiceImplTest ^
                                 --json
-        
                             echo >> End of dry-run CLI output
                         """,
                         returnStdout: true
