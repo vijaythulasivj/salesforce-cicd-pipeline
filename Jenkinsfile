@@ -57,6 +57,7 @@ pipeline {
                                 --manifest destructive/package.xml ^
                                 --target-org myAlias ^
                                 --test-level RunSpecifiedTests ^
+                                --tests ASKYTightestMatchServiceImplTest ^
                                 --json
         
                             echo >> End of dry-run CLI output
