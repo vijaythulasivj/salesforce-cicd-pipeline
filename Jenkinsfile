@@ -1,4 +1,4 @@
-
+/*
 pipeline {
     agent any
 
@@ -199,15 +199,9 @@ pipeline {
         */
     }
 }
-
-/*
+*/
 pipeline {
-    agent {
-        docker {
-            image 'salesforce-cli:latest'
-            args '-u root' // optional: run as root user
-        }
-    }
+    agent any
 
     environment {
         CONSUMER_KEY = credentials('sf-consumer-key')
@@ -219,20 +213,32 @@ pipeline {
     }
 
     stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('salesforce-cli:latest')
+                }
+            }
+        }
+
         stage('Authenticate Salesforce') {
             steps {
-                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                    sh '''
-                        sf auth jwt grant \
-                            --client-id $CONSUMER_KEY \
-                            --jwt-key-file "$JWT_KEY" \
-                            --username $SF_USERNAME \
-                            --instance-url https://test.salesforce.com \
-                            --alias myAlias \
-                            --set-default \
-                            --no-prompt
-                    '''
-                    echo '✅ Authenticated successfully.'
+                script {
+                    docker.image('salesforce-cli:latest').inside {
+                        withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                            sh """
+                                sf auth jwt grant \
+                                    --client-id ${CONSUMER_KEY} \
+                                    --jwt-key-file ${JWT_KEY} \
+                                    --username ${SF_USERNAME} \
+                                    --instance-url https://test.salesforce.com \
+                                    --alias myAlias \
+                                    --set-default \
+                                    --no-prompt
+                            """
+                            sh 'echo "✅ Authenticated successfully."'
+                        }
+                    }
                 }
             }
         }
@@ -241,33 +247,35 @@ pipeline {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
                 script {
-                    echo '🔧 Checking that sf CLI runs and prints version...'
+                    docker.image('salesforce-cli:latest').inside {
+                        echo '🔧 Checking that sf CLI runs and prints version...'
+                        def versionOutput = sh(script: 'sf --version', returnStdout: true).trim()
+                        echo "📦 sf CLI version output:\n${versionOutput}"
 
-                    def versionOutput = sh(script: 'sf --version', returnStdout: true).trim()
-                    echo "📦 sf CLI version output:\n${versionOutput}"
+                        echo '🔧 Checking deploy command prints something:'
 
-                    echo '🔧 Checking deploy command prints something:'
-
-                    def dryRunOutput = sh(
-                        script: '''
-                            echo ">> Starting validation dry-run..."
-                            sf project deploy start \
+                        def dryRunOutput = sh(script: """
+                            set -e
+                            echo "Starting validation dry-run..."
+                            sf deploy metadata validate \
                                 --manifest destructive/package.xml \
+                                --destructive-changes destructive/destructiveChanges.xml \
                                 --target-org myAlias \
-                                --validation \
-                                --test-level NoTestRun \
+                                --test-level RunSpecifiedTests \
+                                --tests ASKYTightestMatchServiceImplTest \
                                 --json
-                            echo ">> End of dry-run CLI output"
-                        ''',
-                        returnStdout: true
-                    ).trim()
+                            echo "End of dry-run CLI output"
+                        """, returnStdout: true).trim()
 
-                    echo "🖨️ Raw deploy output:\n${dryRunOutput}"
+                        echo "🖨️ Raw deploy output:\n${dryRunOutput}"
+                    }
                 }
             }
         }
+
+        // Similarly wrap other sf commands in docker.image(...).inside { ... } blocks
     }
 }
-*/
+
 
 
