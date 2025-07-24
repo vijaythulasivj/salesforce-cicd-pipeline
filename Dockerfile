@@ -5,7 +5,7 @@ FROM node:18
 RUN apt-get update && apt-get install -y bash curl git xz-utils && rm -rf /var/lib/apt/lists/*
 
 # Install Salesforce CLI (sf) from official tarball
-RUN curl -sSL https://developer.salesforce.com/tools/salesforcecli#/sf-linux-x64.tar.xz | tar -xJ -C /usr/local/bin --strip-components=1 sf-linux-x64/sf
+RUN curl -sSL https://developer.salesforce.com/tools/salesforcecli/sf-linux-x64.tar.xz | tar -xJ -C /usr/local/bin --strip-components=1 sf-linux-x64/sf
 
 # Make sure sf CLI is executable and in PATH
 RUN chmod +x /usr/local/bin/sf
