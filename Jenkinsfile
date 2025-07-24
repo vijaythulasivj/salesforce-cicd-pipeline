@@ -43,7 +43,6 @@ pipeline {
             steps {
                 script {
                     // 🔧 Use the correct path to the updated Salesforce CLI
-                    def sfCmd = '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\sf\\bin\\sf.cmd"'
         
                     echo '🔧 Checking that sf CLI runs and prints version...'
         
