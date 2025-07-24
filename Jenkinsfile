@@ -38,41 +38,32 @@ pipeline {
             }
         }
 
-        stage('Verify Workspace') {
-            steps {
-                echo '📁 Printing current directory and file tree for debugging...'
-                bat 'cd'
-                bat 'dir /s /b'
-            }
-        }
-
         stage('🔍 Step 0: Validate CLI Execution') {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
                 script {
                     echo '🔧 Checking that sf CLI runs and prints version...'
-
+        
                     def versionOutput = bat(script: 'sf --version', returnStdout: true).trim()
                     echo "📦 sf CLI version output:\n${versionOutput}"
-
+        
                     echo '🔧 Checking deploy command prints something:'
-
+        
                     def dryRunOutput = bat(
                         script: """
                             @echo off
                             echo >> Starting validation dry-run...
-                            sf project deploy start ^
+                            sf deploy metadata validate ^
                                 --manifest destructive/package.xml ^
                                 --target-org myAlias ^
-                                --checkonly ^
                                 --test-level NoTestRun ^
                                 --json
-
+        
                             echo >> End of dry-run CLI output
                         """,
                         returnStdout: true
                     ).trim()
-
+        
                     echo "🖨️ Raw deploy output:\n${dryRunOutput}"
                 }
             }
