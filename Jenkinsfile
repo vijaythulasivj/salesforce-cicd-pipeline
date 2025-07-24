@@ -43,6 +43,10 @@ pipeline {
             steps {
                 script {
                     echo '🔧 Checking that sf CLI runs and prints version...'
+                    
+                    // Run 'where sf' to see which sf executable Jenkins is using
+                    def sfPath = bat(script: 'where sf', returnStdout: true).trim()
+                    echo "🔍 sf executable path(s):\n${sfPath}"
         
                     def versionOutput = bat(script: 'sf --version', returnStdout: true).trim()
                     echo "📦 sf CLI version output:\n${versionOutput}"
