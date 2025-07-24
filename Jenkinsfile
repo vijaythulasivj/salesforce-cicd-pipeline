@@ -64,7 +64,7 @@ pipeline {
                             sf project deploy start ^
                                 --manifest destructive/package.xml ^
                                 --target-org myAlias ^
-                                --validation ^
+                                --checkonly ^
                                 --test-level NoTestRun ^
                                 --json
 
