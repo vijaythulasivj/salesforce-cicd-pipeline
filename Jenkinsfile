@@ -69,7 +69,6 @@ pipeline {
                               --test-level RunSpecifiedTests ^
                               --tests ASKYTightestMatchServiceImplTest ^
                               --json
-
         
                             echo >> End of dry-run CLI output
                         """,
