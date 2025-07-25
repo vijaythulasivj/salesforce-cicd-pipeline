@@ -45,7 +45,8 @@ pipeline {
                 script {
                     // Define sfCmd variable here
                     def sfCmd = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
-        
+                    echo 'Current working directory:'
+                    bat 'cd'
                     echo '🔧 Checking that sf CLI runs and prints version...'
                     /*
                     // Use sfCmd variable explicitly
