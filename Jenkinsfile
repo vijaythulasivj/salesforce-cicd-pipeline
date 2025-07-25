@@ -47,11 +47,11 @@ pipeline {
                     def sfCmd = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
         
                     echo '🔧 Checking that sf CLI runs and prints version...'
-        
+                    /*
                     // Use sfCmd variable explicitly
                     def sfPath = bat(script: 'where sf', returnStdout: true).trim()
                     echo "🔍 sf executable path(s):\n${sfPath}"
-        
+                    */
                     def versionOutput = bat(script: "${sfCmd} --version", returnStdout: true).trim()
                     echo "📦 sf CLI version output:\n${versionOutput}"
         
