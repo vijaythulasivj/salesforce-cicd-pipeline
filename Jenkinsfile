@@ -48,7 +48,6 @@ pipeline {
                     echo 'Current working directory:'
                     bat 'cd'
                     echo '🔧 Checking that sf CLI runs and prints version...'
-                    /*
                     // Use sfCmd variable explicitly
                     def sfPath = bat(script: 'where sf', returnStdout: true).trim()
                     echo "🔍 sf executable path(s):\n${sfPath}"
@@ -206,6 +205,7 @@ pipeline {
         }
     }
 }
+*/
 
 pipeline {
     agent any
