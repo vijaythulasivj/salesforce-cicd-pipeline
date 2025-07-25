@@ -24,15 +24,16 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                     bat """
-                        sf auth jwt grant ^
-                            --client-id %CONSUMER_KEY% ^
-                            --jwt-key-file "%JWT_KEY%" ^
-                            --username %SF_USERNAME% ^
-                            --instance-url https://test.salesforce.com ^
-                            --alias myAlias ^
-                            --set-default ^
-                            --no-prompt
+                      "C:\\Program Files\\sf\\bin\\sf.cmd" auth jwt grant ^
+                        --client-id %CONSUMER_KEY% ^
+                        --jwt-key-file "%JWT_KEY%" ^
+                        --username %SF_USERNAME% ^
+                        --instance-url https://test.salesforce.com ^
+                        --alias myAlias ^
+                        --set-default ^
+                        --no-prompt
                     """
+
                     bat 'echo ✅ Authenticated successfully.'
                 }
             }
