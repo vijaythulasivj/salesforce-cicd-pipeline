@@ -63,8 +63,8 @@ pipeline {
                             @echo off
                             echo >> Starting validation dry-run...
                             ${sfCmd} deploy metadata validate ^
-                              --manifest package.xml ^
-                              --post-destructive-changes destructive/destructiveChanges.xml ^
+                              --source-dir force-app\main\default\classes ^
+                              --post-destructive-changes destructive\destructiveChanges.xml ^
                               --target-org myAlias ^
                               --test-level RunSpecifiedTests ^
                               --tests ASKYTightestMatchServiceImplTest ^
