@@ -1,4 +1,4 @@
-
+/*
 pipeline {
     agent any
 
@@ -79,8 +79,7 @@ pipeline {
             }
         }
 
-        
-        /*
+    
         stage('🔍 Step 0: Validate Deletion Readiness') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -205,6 +204,81 @@ pipeline {
                 }
             }
         }
-        */
+    }
+}
+
+pipeline {
+    agent any
+
+    environment {
+        CONSUMER_KEY = credentials('sf-consumer-key')
+        SF_USERNAME = credentials('sf-username')
+        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"' // ✅ Define once here
+    }
+
+    parameters {
+        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
+    }
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('salesforce-cli:latest')
+                }
+            }
+        }
+
+        stage('Authenticate Salesforce') { 
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                      %SF_CMD% auth jwt grant ^
+                        --client-id %CONSUMER_KEY% ^
+                        --jwt-key-file "%JWT_KEY%" ^
+                        --username %SF_USERNAME% ^
+                        --instance-url https://test.salesforce.com ^
+                        --alias myAlias ^
+                        --set-default ^
+                        --no-prompt
+                    """
+
+                    bat 'echo ✅ Authenticated successfully.'
+                }
+            }
+        }
+
+        stage('🔍 Step 0: Validate CLI Execution') {
+            when { expression { !params.REDEPLOY_METADATA } }
+            steps {
+                script {
+                    echo 'Current working directory:'
+                    bat 'cd'
+                    echo '🔧 Checking that sf CLI runs and prints version...'
+
+                    def versionOutput = bat(script: "%SF_CMD% --version", returnStdout: true).trim()
+                    echo "📦 sf CLI version output:\n${versionOutput}"
+
+                    echo '🔧 Checking deploy command prints something:'
+
+                    def dryRunOutput = bat(
+                        script: """
+                            @echo off
+                            echo >> Starting validation dry-run...
+                            %SF_CMD% deploy metadata validate ^
+                              --source-dir force-app/main/default/classes ^
+                              --target-org myAlias ^
+                              --test-level RunSpecifiedTests ^
+                              --tests ASKYTightestMatchServiceImplTest ^
+                              --json
+                            echo >> End of dry-run CLI output
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    echo "🖨️ Raw deploy output:\n${dryRunOutput}"
+                }
+            }
+        }
     }
 }
