@@ -303,10 +303,10 @@ pipeline {
         
                     echo '🐍 Generating CSV report from deploy-result.json...'
         
-                    // Run the Python script to convert JSON to CSV
-                    bat 'python scripts\\generate_validation_report.py'
+                    // ✅ Run the Python script using the full path
+                    bat '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" scripts\\generate_validation_report.py'
         
-                    // Archive the CSV files for download/view in Jenkins
+                    // ✅ Archive the CSV files so they are viewable/downloadable in Jenkins
                     archiveArtifacts artifacts: '*.csv', allowEmptyArchive: true
         
                     echo '✅ CSV report generated and archived.'
