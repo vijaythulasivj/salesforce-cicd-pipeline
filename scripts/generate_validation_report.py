@@ -5,9 +5,8 @@ import csv
 with open("deploy-result.json") as f:
     data = json.load(f)
 
-# 🔁 Drill into nested "result"
-result = data.get("result", {})  # Top level
-inner_result = result.get("result", result)  # Some CLI versions nest again
+# 🔧 Your test results are directly under "result"
+result = data.get("result", {})
 
 # ---------- 1. TEST RESULTS ----------
 with open("test-results.csv", "w", newline="") as csvfile:
@@ -15,7 +14,10 @@ with open("test-results.csv", "w", newline="") as csvfile:
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
 
-    for test in inner_result.get("successes", []):
+    successes = result.get("successes", [])
+    failures = result.get("failures", [])
+
+    for test in successes:
         writer.writerow({
             "TestClass": test.get("name", ""),
             "Method": test.get("methodName", ""),
@@ -23,7 +25,7 @@ with open("test-results.csv", "w", newline="") as csvfile:
             "Status": "Success"
         })
 
-    for test in inner_result.get("failures", []):
+    for test in failures:
         writer.writerow({
             "TestClass": test.get("name", ""),
             "Method": test.get("methodName", ""),
@@ -32,7 +34,7 @@ with open("test-results.csv", "w", newline="") as csvfile:
         })
 
 # ---------- 2. COMPONENT FAILURES ----------
-component_failures = inner_result.get("componentFailures", [])
+component_failures = result.get("componentFailures", [])
 if component_failures:
     with open("component-failures.csv", "w", newline="") as csvfile:
         fieldnames = ["FullName", "Type", "Problem", "FileName", "LineNumber", "ColumnNumber"]
@@ -49,7 +51,7 @@ if component_failures:
             })
 
 # ---------- 3. CODE COVERAGE WARNINGS ----------
-coverage_warnings = inner_result.get("codeCoverageWarnings", [])
+coverage_warnings = result.get("codeCoverageWarnings", [])
 if coverage_warnings:
     with open("code-coverage-warnings.csv", "w", newline="") as csvfile:
         fieldnames = ["Name", "Message"]
@@ -62,7 +64,7 @@ if coverage_warnings:
             })
 
 # ---------- 4. FLOW COVERAGE WARNINGS ----------
-flow_warnings = inner_result.get("flowCoverageWarnings", [])
+flow_warnings = result.get("flowCoverageWarnings", [])
 if flow_warnings:
     with open("flow-coverage-warnings.csv", "w", newline="") as csvfile:
         fieldnames = ["FlowName", "Message"]
@@ -76,7 +78,7 @@ if flow_warnings:
 
 # ---------- DONE ----------
 print("CSV reports generated:")
-print("- test-results.csv")
+print("- test-results.csv ({} tests)".format(len(successes) + len(failures)))
 if component_failures:
     print("- component-failures.csv")
 if coverage_warnings:
