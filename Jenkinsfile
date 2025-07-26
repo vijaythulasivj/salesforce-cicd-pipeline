@@ -246,7 +246,7 @@ pipeline {
                 }
             }
         }
-
+        /*
         stage('🔍 Step 0: Validate CLI Execution') {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
@@ -276,6 +276,40 @@ pipeline {
                     ).trim()
 
                     echo "🖨️ Raw deploy output:\n${dryRunOutput}"
+                }
+            }
+        }
+        */
+        stage('🔍 Step 0: Validate CLI Execution') {
+            when { expression { !params.REDEPLOY_METADATA } }
+            steps {
+                script {
+                    echo '📁 Current working directory:'
+                    bat 'cd'
+        
+                    echo '🔧 Validating sf CLI and running dry-run deployment...'
+        
+                    // Save CLI JSON output to a file
+                    bat """
+                        @echo off
+                        echo Running validation with JSON output...
+                        %SF_CMD% deploy metadata validate ^
+                            --source-dir force-app/main/default/classes ^
+                            --target-org myAlias ^
+                            --test-level RunSpecifiedTests ^
+                            --tests ASKYTightestMatchServiceImplTest ^
+                            --json > deploy-result.json
+                    """
+        
+                    echo '🐍 Generating CSV report from deploy-result.json...'
+        
+                    // Run the Python script to convert JSON to CSV
+                    bat 'python scripts\\generate_validation_report.py'
+        
+                    // Archive the CSV files for download/view in Jenkins
+                    archiveArtifacts artifacts: '*.csv', allowEmptyArchive: true
+        
+                    echo '✅ CSV report generated and archived.'
                 }
             }
         }
