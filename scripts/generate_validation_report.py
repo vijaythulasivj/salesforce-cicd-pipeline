@@ -72,7 +72,7 @@ if flow_warnings:
                 "Message": warning.get("message", "")
             })
 
-print("✅ CSV reports generated:")
+print(" CSV reports generated:")
 print("- test-results.csv")
 if component_failures:
     print("- component-failures.csv")
