@@ -5,7 +5,10 @@ import subprocess
 import requests
 
 # === CONFIG ===
-TEST_RUN_ID = os.getenv("TEST_RUN_ID") or "707fZ000001XtOe"  # You can pass this from Jenkins
+TEST_RUN_ID = os.getenv("TEST_RUN_ID")
+if not TEST_RUN_ID:
+    raise ValueError("Missing TEST_RUN_ID environment variable. Pass it from Jenkins.")
+
 ALIAS = os.getenv("SF_ALIAS") or "myAlias"  # Jenkins env variable or default alias
 
 # Full path to sf.cmd (Option 1)
