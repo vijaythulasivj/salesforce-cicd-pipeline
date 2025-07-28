@@ -267,7 +267,7 @@ pipeline {
                             --tests ASKYTightestMatchServiceImplTest ^
                             --json > deploy-result.json
                     """
-                    /*
+                    
                     echo '🧪 Step 2: Running tests for accurate code coverage...'
                     bat """
                         @echo off
@@ -278,7 +278,7 @@ pipeline {
                             --test-level RunSpecifiedTests ^
                             --json > test-result.json
                     """
-                    */
+                
                     echo '🐍 Generating CSV report from deploy-result.json...'
         
                     // ✅ Run the Python script using the full path
