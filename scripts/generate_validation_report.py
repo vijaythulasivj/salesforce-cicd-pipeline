@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import subprocess
 import requests
+import time
 
 # === CONFIG ===
 TEST_RUN_ID = os.getenv("TEST_RUN_ID")
@@ -18,7 +19,7 @@ SF_CMD_PATH = r"C:\Program Files\sf\bin\sf.cmd"
 with open("deploy-result.json", encoding="utf-8") as f:
     deploy_data = json.load(f)
 
-# === Step 2: Fetch Apex test result via REST API ===
+# === Step 2: Fetch Apex test result via REST API with retry ===
 def fetch_test_results(test_run_id, alias):
     print(f"Getting access token from alias: {alias}...")
     sf_cmd = [SF_CMD_PATH, "org", "display", "--target-org", alias, "--json"]
@@ -30,7 +31,6 @@ def fetch_test_results(test_run_id, alias):
 
     print("Querying ApexTestResult from Tooling API...")
 
-    # FIX: Single-line, clean query to avoid 400 Bad Request
     query = (
         "SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId "
         f"FROM ApexTestResult WHERE AsyncApexJobId = '{test_run_id}'"
@@ -39,9 +39,20 @@ def fetch_test_results(test_run_id, alias):
     url = f"{instance_url}/services/data/v58.0/tooling/query?q={encoded_query}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    response = requests.get(url, headers=headers)
+    # Retry logic
+    for attempt in range(5):
+        print(f"🔁 Attempt {attempt + 1} to fetch test results...")
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            print(" Test results retrieved.")
+            return response.json()
+
+        print(f" Failed (status {response.status_code}): {response.text.strip()}")
+        time.sleep(5)
+
+    print(" Failed to retrieve test results after multiple attempts.")
     response.raise_for_status()
-    return response.json()
 
 # === Step 3: Call the function to get test results ===
 test_data = fetch_test_results(TEST_RUN_ID, ALIAS)
@@ -85,4 +96,4 @@ with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print("✅ test-results.xlsx generated with multiple sheets.")
+print("test-results.xlsx generated with multiple sheets.")
