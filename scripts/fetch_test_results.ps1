@@ -25,4 +25,4 @@ $apiUrl = "$instanceUrl/services/data/v58.0/tooling/query/?q=$encodedQuery"
 $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get
 $response | ConvertTo-Json -Depth 100 | Out-File "test-result.json" -Encoding utf8
 
-Write-Host "test-result.json saved from API."
+Write-Host "✅ test-result.json saved from API."
