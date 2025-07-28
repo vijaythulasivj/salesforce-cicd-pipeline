@@ -1,87 +1,80 @@
 import json
-import csv
+import pandas as pd
+import sys
 
-# Load the CLI JSON output
-with open("deploy-result.json") as f:
+# Accept input file from command-line, fallback to default
+input_file = sys.argv[1] if len(sys.argv) > 1 else "combined-result.json"
+
+# Load the combined JSON data
+with open(input_file, encoding="utf-8") as f:
     data = json.load(f)
 
-# 🔧 Your test results are directly under "result"
-result = data.get("result", {})
+# Access validation and test result parts
+deploy_result = data.get("result", {})
+details = deploy_result.get("details", {})
+component_failures = details.get("componentFailures", [])
 
-# ---------- 1. TEST RESULTS ----------
-with open("test-results.csv", "w", newline="") as csvfile:
-    fieldnames = ["TestClass", "Method", "Time(ms)", "Status"]
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-    writer.writeheader()
+# Test run result is stored separately
+test_run_result = data.get("testRunResult", {})
+run_test_result = test_run_result.get("details", {}).get("runTestResult", {})
+successes = run_test_result.get("successes", [])
+failures = run_test_result.get("failures", [])
+code_coverage = run_test_result.get("codeCoverage", [])
 
-    successes = result.get("successes", [])
-    failures = result.get("failures", [])
+# Test Results Sheet
+test_rows = []
+for test in successes:
+    test_rows.append([
+        test.get("name", ""),
+        test.get("methodName", ""),
+        test.get("time", 0),
+        "Success"
+    ])
+for test in failures:
+    test_rows.append([
+        test.get("name", ""),
+        test.get("methodName", ""),
+        test.get("time", "N/A"),
+        "Failure"
+    ])
+df_tests = pd.DataFrame(test_rows, columns=["TestClass", "Method", "Time(ms)", "Status"])
 
-    for test in successes:
-        writer.writerow({
-            "TestClass": test.get("name", ""),
-            "Method": test.get("methodName", ""),
-            "Time(ms)": test.get("time", ""),
-            "Status": "Success"
-        })
-
-    for test in failures:
-        writer.writerow({
-            "TestClass": test.get("name", ""),
-            "Method": test.get("methodName", ""),
-            "Time(ms)": test.get("time", "N/A"),
-            "Status": "Failure"
-        })
-
-# ---------- 2. COMPONENT FAILURES ----------
-component_failures = result.get("componentFailures", [])
+# Component Failures Sheet
 if component_failures:
-    with open("component-failures.csv", "w", newline="") as csvfile:
-        fieldnames = ["FullName", "Type", "Problem", "FileName", "LineNumber", "ColumnNumber"]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for failure in component_failures:
-            writer.writerow({
-                "FullName": failure.get("fullName", ""),
-                "Type": failure.get("componentType", ""),
-                "Problem": failure.get("problem", ""),
-                "FileName": failure.get("fileName", ""),
-                "LineNumber": failure.get("lineNumber", ""),
-                "ColumnNumber": failure.get("columnNumber", "")
-            })
+    component_rows = [
+        [fail.get("fileName", "Unknown"), fail.get("problem", "No details")]
+        for fail in component_failures
+    ]
+    df_component_failures = pd.DataFrame(component_rows, columns=["FileName", "Problem"])
+else:
+    df_component_failures = pd.DataFrame([["✅ No component failures detected."]], columns=["Message"])
 
-# ---------- 3. CODE COVERAGE WARNINGS ----------
-coverage_warnings = result.get("codeCoverageWarnings", [])
-if coverage_warnings:
-    with open("code-coverage-warnings.csv", "w", newline="") as csvfile:
-        fieldnames = ["Name", "Message"]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for warning in coverage_warnings:
-            writer.writerow({
-                "Name": warning.get("name", ""),
-                "Message": warning.get("message", "")
-            })
+# Code Coverage Sheet
+coverage_rows = []
+low_coverage_rows = []
 
-# ---------- 4. FLOW COVERAGE WARNINGS ----------
-flow_warnings = result.get("flowCoverageWarnings", [])
-if flow_warnings:
-    with open("flow-coverage-warnings.csv", "w", newline="") as csvfile:
-        fieldnames = ["FlowName", "Message"]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for warning in flow_warnings:
-            writer.writerow({
-                "FlowName": warning.get("flowName", ""),
-                "Message": warning.get("message", "")
-            })
+for coverage in code_coverage:
+    class_name = coverage.get("name") or coverage.get("id", "Unknown")
+    locations_not_covered = coverage.get("locationsNotCovered", [])
+    locations_covered = coverage.get("locationsCovered", 0)
+    total = locations_covered + len(locations_not_covered)
+    coverage_pct = (locations_covered / total) * 100 if total > 0 else 100.0
+    coverage_rows.append([class_name, f"{coverage_pct:.2f}"])
+    if coverage_pct < 75:
+        low_coverage_rows.append([class_name, f"{coverage_pct:.2f}"])
 
-# ---------- DONE ----------
-print("CSV reports generated:")
-print("- test-results.csv ({} tests)".format(len(successes) + len(failures)))
-if component_failures:
-    print("- component-failures.csv")
-if coverage_warnings:
-    print("- code-coverage-warnings.csv")
-if flow_warnings:
-    print("- flow-coverage-warnings.csv")
+df_coverage = pd.DataFrame(coverage_rows, columns=["Class Name", "Coverage %"])
+df_low_coverage = (
+    pd.DataFrame(low_coverage_rows, columns=["Class Name", "Coverage %"])
+    if low_coverage_rows
+    else pd.DataFrame([["✅ All classes have coverage >= 75%."]], columns=["Message"])
+)
+
+# Save to Excel
+with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
+    df_tests.to_excel(writer, sheet_name="Test Results", index=False)
+    df_component_failures.to_excel(writer, sheet_name="Component Failures", index=False)
+    df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
+    df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
+
+print("✅ test-results.xlsx generated with multiple sheets.")
