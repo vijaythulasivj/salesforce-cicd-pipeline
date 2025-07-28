@@ -5,7 +5,7 @@ import pandas as pd
 with open("deploy-result.json", encoding="utf-8") as f:
     deploy_data = json.load(f)
 
-# Load test run JSON
+# Load detailed test run JSON
 with open("test-result.json", encoding="utf-8") as f:
     test_data = json.load(f)
 
@@ -13,9 +13,10 @@ with open("test-result.json", encoding="utf-8") as f:
 deploy_details = deploy_data.get("result", {}).get("details", {})
 component_failures = deploy_details.get("componentFailures", [])
 
-# Extract test run details
-test_details = test_data.get("result", {}).get("details", {})
-run_test_result = test_details.get("runTestResult", {})
+# Extract detailed test run results
+test_details = test_data.get("result", {})
+run_test_result = test_details.get("runTestResult", {}) or test_details  # fallback if no runTestResult property
+
 successes = run_test_result.get("successes", [])
 failures = run_test_result.get("failures", [])
 code_coverage = run_test_result.get("codeCoverage", [])
