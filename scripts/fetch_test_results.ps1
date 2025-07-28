@@ -3,13 +3,13 @@ param (
     [string]$Alias
 )
 
-Write-Host "🔑 Getting access token from SF alias: $Alias..."
+Write-Host " Getting access token from SF alias: $Alias..."
 
 $orgInfo = sf org display $Alias --json | ConvertFrom-Json
 $accessToken = $orgInfo.result.accessToken
 $instanceUrl = $orgInfo.result.instanceUrl
 
-Write-Host "📡 Querying REST API for test run ID: $TestRunId..."
+Write-Host " Querying REST API for test run ID: $TestRunId..."
 
 $headers = @{ Authorization = "Bearer $accessToken" }
 
@@ -25,4 +25,4 @@ $apiUrl = "$instanceUrl/services/data/v58.0/tooling/query/?q=$encodedQuery"
 $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get
 $response | ConvertTo-Json -Depth 100 | Out-File "test-result.json" -Encoding utf8
 
-Write-Host "✅ test-result.json saved from API."
+Write-Host " test-result.json saved from API."
