@@ -14,7 +14,7 @@ with open("deploy-result.json", encoding="utf-8") as f:
 
 # === Step 2: Fetch Apex test result via REST API ===
 def fetch_test_results(test_run_id, alias):
-    print(f"🔐 Getting access token from alias: {alias}...")
+    print(f" Getting access token from alias: {alias}...")
     sf_cmd = ["sf", "org", "display", "--target-org", alias, "--json"]
     sf_output = subprocess.run(sf_cmd, capture_output=True, text=True, check=True)
     sf_info = json.loads(sf_output.stdout)
@@ -22,7 +22,7 @@ def fetch_test_results(test_run_id, alias):
     access_token = sf_info['result']['accessToken']
     instance_url = sf_info['result']['instanceUrl']
 
-    print(f"📡 Querying ApexTestResult from Tooling API...")
+    print(f"querying ApexTestResult from Tooling API...")
     query = f"""
     SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId
     FROM ApexTestResult
@@ -50,7 +50,7 @@ if component_failures:
     ]
     df_component_failures = pd.DataFrame(component_rows, columns=["FileName", "Problem"])
 else:
-    df_component_failures = pd.DataFrame([["✅ No component failures detected."]], columns=["Message"])
+    df_component_failures = pd.DataFrame([["No component failures detected."]], columns=["Message"])
 
 # === Step 5: Test Results Sheet ===
 records = test_data.get("records", [])
@@ -68,7 +68,7 @@ for rec in records:
 df_tests = pd.DataFrame(test_rows, columns=["TestClass", "Method", "Outcome", "Message", "StackTrace"])
 
 # === Step 6: Code Coverage Stub Sheet ===
-df_coverage = pd.DataFrame([["⚠️ Code coverage data not available via ApexTestResult API."]], columns=["Message"])
+df_coverage = pd.DataFrame([["Code coverage data not available via ApexTestResult API."]], columns=["Message"])
 df_low_coverage = pd.DataFrame([["N/A"]], columns=["Message"])
 
 # === Step 7: Save Excel Report ===
@@ -78,4 +78,4 @@ with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print("✅ test-results.xlsx generated with multiple sheets.")
+print("test-results.xlsx generated with multiple sheets.")
