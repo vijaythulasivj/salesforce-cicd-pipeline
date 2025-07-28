@@ -76,4 +76,4 @@ with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print("✅ test-results.xlsx generated with multiple sheets.")
+print("test-results.xlsx generated with multiple sheets.")
