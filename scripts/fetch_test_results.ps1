@@ -7,7 +7,7 @@ $sfCmd = "C:\Program Files\sf\bin\sf.cmd"
 
 Write-Host " Getting access token from SF alias: $Alias..."
 
-$orgInfo = & "$sfCmd" org display $Alias --json | ConvertFrom-Json
+$orgInfo = & "$sfCmd" org display --target-org $Alias --json | ConvertFrom-Json
 $accessToken = $orgInfo.result.accessToken
 $instanceUrl = $orgInfo.result.instanceUrl
 
@@ -21,12 +21,10 @@ FROM ApexTestResult
 WHERE AsyncApexJobId = '$TestRunId'
 "@
 
-Add-Type -AssemblyName System.Net.WebUtility
-$encodedQuery = [System.Net.WebUtility]::UrlEncode($query)
-
+$encodedQuery = [System.Uri]::EscapeDataString($query)
 $apiUrl = "$instanceUrl/services/data/v58.0/tooling/query/?q=$encodedQuery"
 
 $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get
 $response | ConvertTo-Json -Depth 100 | Out-File "test-result.json" -Encoding utf8
 
-Write-Host "test-result.json saved from API."
+Write-Host " test-result.json saved from API."
