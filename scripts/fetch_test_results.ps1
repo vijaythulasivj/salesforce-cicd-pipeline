@@ -45,4 +45,7 @@ $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get
 
 # Save response to JSON
 $response | ConvertTo-Json -Depth 100 | Out-File "test-result.json" -Encoding utf8
-Write-Host "`n test-result.json saved from API.`n"
+Write-Host ""
+Write-Host " test-result.json saved from API."
+Write-Host ""
+
