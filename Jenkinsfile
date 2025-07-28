@@ -205,7 +205,7 @@ pipeline {
     }
 }
 */
-/*
+
 pipeline {
     agent any
 
@@ -267,7 +267,18 @@ pipeline {
                             --tests ASKYTightestMatchServiceImplTest ^
                             --json > deploy-result.json
                     """
-        
+                    /*
+                    echo '🧪 Step 2: Running tests for accurate code coverage...'
+                    bat """
+                        @echo off
+                        %SF_CMD% apex run test ^
+                            --tests ASKYTightestMatchServiceImplTest ^
+                            --target-org myAlias ^
+                            --code-coverage ^
+                            --test-level RunSpecifiedTests ^
+                            --json > test-result.json
+                    """
+                    */
                     echo '🐍 Generating CSV report from deploy-result.json...'
         
                     // ✅ Run the Python script using the full path
@@ -282,211 +293,5 @@ pipeline {
         }
     }
 }
-*/
-/*
-pipeline {
-    agent any
 
-    environment {
-        CONSUMER_KEY = credentials('sf-consumer-key')
-        SF_USERNAME = credentials('sf-username')
-        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"' // ✅ Define once here
-    }
-
-    parameters {
-        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
-    }
-
-    stages {
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    docker.build('salesforce-cli:latest')
-                }
-            }
-        }
-
-        stage('Authenticate Salesforce') { 
-            steps {
-                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                    bat """
-                      %SF_CMD% auth jwt grant ^
-                        --client-id %CONSUMER_KEY% ^
-                        --jwt-key-file "%JWT_KEY%" ^
-                        --username %SF_USERNAME% ^
-                        --instance-url https://test.salesforce.com ^
-                        --alias myAlias ^
-                        --set-default ^
-                        --no-prompt
-                    """
-
-                    bat 'echo ✅ Authenticated successfully.'
-                }
-            }
-        }
-        stage('🔍 Step 0: Validate and Report') {
-            when { expression { !params.REDEPLOY_METADATA } }
-            steps {
-                script {
-                    echo '📁 Checking working directory:'
-                    bat 'cd'
-        
-                    echo '🔧 Step 1: Validating deployment metadata...'
-                    bat """
-                        @echo off
-                        %SF_CMD% deploy metadata validate ^
-                            --source-dir force-app/main/default/classes ^
-                            --target-org myAlias ^
-                            --test-level RunSpecifiedTests ^
-                            --tests ASKYTightestMatchServiceImplTest ^
-                            --json > deploy-result.json
-                    """
-        
-                    echo '🧪 Step 2: Running tests for accurate code coverage...'
-                    bat """
-                        @echo off
-                        %SF_CMD% apex run test ^
-                            --tests ASKYTightestMatchServiceImplTest ^
-                            --target-org myAlias ^
-                            --code-coverage ^
-                            --test-level RunSpecifiedTests ^
-                            --json > test-result.json
-                    """
-        
-                    echo '🧩 Step 3: Merging deploy and test results...'
-                    bat '''@echo off
-                    type deploy-result.json > combined-result.json
-                    powershell -Command "$deploy = Get-Content deploy-result.json | ConvertFrom-Json; $test = Get-Content test-result.json | ConvertFrom-Json; $deploy | Add-Member -MemberType NoteProperty -Name testRunResult -Value $test.result; $deploy | ConvertTo-Json -Depth 10 | Set-Content combined-result.json"
-                    '''
-
-        
-                    echo '📊 Step 4: Generating Excel report...'
-                    bat '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" scripts\\generate_validation_report.py combined-result.json'
-        
-                    archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
-        
-                    echo '✅ Excel report generated and archived.'
-                }
-            }
-        }
-    }
-}
-*/
-pipeline {
-    agent any
-
-    environment {
-        CONSUMER_KEY = credentials('sf-consumer-key')
-        SF_USERNAME = credentials('sf-username')
-        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
-        PYTHONIOENCODING = 'utf-8'
-    }
-
-    parameters {
-        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
-    }
-
-    stages {
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    docker.build('salesforce-cli:latest')
-                }
-            }
-        }
-
-        stage('Authenticate Salesforce') {
-            steps {
-                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
-                    bat """
-                        @echo off
-                        %SF_CMD% auth jwt grant ^
-                            --client-id %CONSUMER_KEY% ^
-                            --jwt-key-file "%JWT_KEY%" ^
-                            --username %SF_USERNAME% ^
-                            --instance-url https://test.salesforce.com ^
-                            --alias myAlias ^
-                            --set-default ^
-                            --no-prompt
-                        echo Auth exit code: %ERRORLEVEL%
-                    """
-                    bat 'echo ✅ Authenticated successfully.'
-                }
-            }
-        }
-
-        stage('🔍 Step 0: Validate and Report') {
-            when { expression { !params.REDEPLOY_METADATA } }
-            steps {
-                script {
-                    echo '📁 Checking working directory:'
-                    bat 'cd'
-
-                    try {
-                        echo '🔧 Step 1: Validating deployment metadata...'
-                        bat """
-                            @echo off
-                            %SF_CMD% deploy metadata validate ^
-                                --source-dir force-app/main/default/classes ^
-                                --target-org myAlias ^
-                                --test-level RunSpecifiedTests ^
-                                --tests ASKYTightestMatchServiceImplTest ^
-                                --json > deploy-result.json
-                            echo Deploy validation exit code: %ERRORLEVEL%
-                            dir deploy-result.json
-                            type deploy-result.json
-                        """
-                    } catch (err) {
-                        echo "❌ Validation failed: ${err}"
-                        throw err
-                    }
-
-                    try {
-                        echo '🧪 Step 2: Running tests for accurate code coverage...'
-                        bat """
-                            @echo off
-                            %SF_CMD% apex run test ^
-                                --tests ASKYTightestMatchServiceImplTest ^
-                                --target-org myAlias ^
-                                --code-coverage ^
-                                --test-level RunSpecifiedTests ^
-                                --json > test-result.json
-                            echo Test run exit code: %ERRORLEVEL%
-                            dir test-result.json
-                            type test-result.json
-                        """
-                    } catch (err) {
-                        echo "❌ Test run failed: ${err}"
-                        throw err
-                    }
-
-                    try {
-                        echo '🧩 Step 3: Merging deploy and test results...'
-                        bat '''@echo off
-                        type deploy-result.json > combined-result.json
-                        powershell -Command "$deploy = Get-Content deploy-result.json | ConvertFrom-Json; $test = Get-Content test-result.json | ConvertFrom-Json; $deploy | Add-Member -MemberType NoteProperty -Name testRunResult -Value $test.result; $deploy | ConvertTo-Json -Depth 10 | Set-Content combined-result.json"
-                        echo Merge exit code: %ERRORLEVEL%
-                        dir combined-result.json
-                        type combined-result.json
-                        '''
-                    } catch (err) {
-                        echo "❌ Merging results failed: ${err}"
-                        throw err
-                    }
-
-                    try {
-                        echo '📊 Step 4: Generating Excel report...'
-                        bat '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" scripts\\generate_validation_report.py combined-result.json'
-                    } catch (err) {
-                        echo "❌ Report generation failed: ${err}"
-                        throw err
-                    }
-
-                    archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
-                    echo '✅ Excel report generated and archived.'
-                }
-            }
-        }
-    }
-}
 
