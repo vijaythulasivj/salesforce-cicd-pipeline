@@ -205,7 +205,7 @@ pipeline {
     }
 }
 */
-
+/*
 pipeline {
     agent any
 
@@ -246,7 +246,7 @@ pipeline {
                 }
             }
         }
-        /* 
+        
         stage('🔍 Step 0: Validate CLI Execution') {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
@@ -291,7 +291,7 @@ pipeline {
                 }
             }
         }
-        */
+        
         stage('🔍 Step 0: Validate CLI Execution') {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
@@ -349,5 +349,107 @@ pipeline {
         }
     }
 }
+*/
+pipeline {
+    agent any
+
+    environment {
+        CONSUMER_KEY = credentials('sf-consumer-key')
+        SF_USERNAME = credentials('sf-username')
+        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
+        ALIAS = "myAlias"
+        INSTANCE_URL = "https://test.salesforce.com"
+        PYTHON_EXE = '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"'
+    }
+
+    parameters {
+        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
+    }
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('salesforce-cli:latest')
+                }
+            }
+        }
+
+        stage('Authenticate Salesforce') {
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                    %SF_CMD% auth jwt grant ^
+                        --client-id %CONSUMER_KEY% ^
+                        --jwt-key-file "%JWT_KEY%" ^
+                        --username %SF_USERNAME% ^
+                        --instance-url %INSTANCE_URL% ^
+                        --alias %ALIAS% ^
+                        --set-default ^
+                        --no-prompt
+                    """
+                    bat 'echo ✅ Authenticated successfully.'
+                }
+            }
+        }
+
+        stage('🔍 Step 0: Validate CLI Execution') {
+            when { expression { !params.REDEPLOY_METADATA } }
+            steps {
+                script {
+                    echo '📁 Current working directory:'
+                    bat 'cd'
+
+                    echo '🔧 Validating sf CLI and running dry-run deployment...'
+                    bat """
+                    %SF_CMD% deploy metadata validate ^
+                        --source-dir force-app/main/default/classes ^
+                        --target-org %ALIAS% ^
+                        --test-level RunSpecifiedTests ^
+                        --tests ASKYTightestMatchServiceImplTest ^
+                        --json > deploy-result.json
+                    """
+
+                    echo '🧪 Running Apex tests (initial run to get testRunId)...'
+                    bat """
+                    %SF_CMD% apex run test ^
+                        --tests ASKYTightestMatchServiceImplTest ^
+                        --target-org %ALIAS% ^
+                        --code-coverage ^
+                        --test-level RunSpecifiedTests ^
+                        --json > test-run.json
+                    """
+
+                    // Extract testRunId from JSON using PowerShell
+                    def testRunId = bat(
+                        script: 'powershell -Command "(Get-Content test-run.json | ConvertFrom-Json).result.testRunId"',
+                        returnStdout: true
+                    ).trim()
+
+                    if (!testRunId) {
+                        error "❌ testRunId not found in test-run.json! Failing pipeline."
+                    }
+                    echo "➡️ Test Run ID: ${testRunId}"
+
+                    echo '🧪 Fetching full detailed test run results...'
+                    bat """
+                    %SF_CMD% apex run test get ^
+                        --test-run-id ${testRunId} ^
+                        --json > test-result.json
+                    """
+
+                    echo '🐍 Generating Excel report from detailed test results...'
+                    bat "${env.PYTHON_EXE} scripts\\generate_validation_report.py"
+
+                    echo '📂 Archiving Excel report...'
+                    archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
+
+                    echo '✅ Excel report generated and archived.'
+                }
+            }
+        }
+    }
+}
+
 
 
