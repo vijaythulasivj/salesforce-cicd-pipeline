@@ -1,51 +1,21 @@
 import json
 import pandas as pd
+import os
 
-def load_json_file(filename):
-    try:
-        with open(filename, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"❌ Error loading {filename}: {e}")
-        return {}
+# Load deployment validation JSON
+with open("deploy-result.json", encoding="utf-8") as f:
+    deploy_data = json.load(f)
 
-# Load JSON files
-deploy_data = load_json_file("deploy-result.json")
-test_data = load_json_file("test-result.json")
+# Load ApexTestResult JSON from REST API
+with open("test-result.json", encoding="utf-8") as f:
+    test_data = json.load(f)
 
-# Extract deployment metadata failures
+# -------------------------
+# Component Failures Sheet
+# -------------------------
 deploy_details = deploy_data.get("result", {}).get("details", {})
 component_failures = deploy_details.get("componentFailures", [])
 
-# Extract detailed test run results
-test_details = test_data.get("result", {})
-# runTestResult may be nested or top-level fallback
-run_test_result = test_details.get("runTestResult", {}) or test_details
-
-successes = run_test_result.get("successes", [])
-failures = run_test_result.get("failures", [])
-code_coverage = run_test_result.get("codeCoverage", [])
-
-# Prepare Test Results Sheet
-test_rows = []
-for test in successes:
-    test_rows.append([
-        test.get("name", ""),
-        test.get("methodName", ""),
-        test.get("time", 0),
-        "Success"
-    ])
-for test in failures:
-    test_rows.append([
-        test.get("name", ""),
-        test.get("methodName", ""),
-        test.get("time", "N/A"),
-        "Failure"
-    ])
-
-df_tests = pd.DataFrame(test_rows, columns=["TestClass", "Method", "Time(ms)", "Status"])
-
-# Prepare Component Failures Sheet
 if component_failures:
     component_rows = [
         [fail.get("fileName", "Unknown"), fail.get("problem", "No details")]
@@ -55,31 +25,38 @@ if component_failures:
 else:
     df_component_failures = pd.DataFrame([["✅ No component failures detected."]], columns=["Message"])
 
-# Prepare Code Coverage Sheet
-coverage_rows = []
-low_coverage_rows = []
-for coverage in code_coverage:
-    class_name = coverage.get("name") or coverage.get("id", "Unknown")
-    locations_not_covered = coverage.get("locationsNotCovered", [])
-    locations_covered = coverage.get("locationsCovered", 0)
-    total = locations_covered + len(locations_not_covered)
-    coverage_pct = (locations_covered / total) * 100 if total > 0 else 100.0
-    coverage_rows.append([class_name, f"{coverage_pct:.2f}"])
-    if coverage_pct < 75:
-        low_coverage_rows.append([class_name, f"{coverage_pct:.2f}"])
+# -------------------------
+# Test Results Sheet
+# -------------------------
+records = test_data.get("records", [])
 
-df_coverage = pd.DataFrame(coverage_rows, columns=["Class Name", "Coverage %"])
-df_low_coverage = (
-    pd.DataFrame(low_coverage_rows, columns=["Class Name", "Coverage %"])
-    if low_coverage_rows
-    else pd.DataFrame([["✅ All classes have coverage >= 75%."]], columns=["Message"])
-)
+test_rows = []
+for rec in records:
+    test_rows.append([
+        rec.get("ApexClass", {}).get("Name", ""),
+        rec.get("MethodName", ""),
+        rec.get("Outcome", ""),
+        rec.get("Message", "") or "",
+        rec.get("StackTrace", "") or ""
+    ])
 
-# Save all to Excel file
+df_tests = pd.DataFrame(test_rows, columns=["TestClass", "Method", "Outcome", "Message", "StackTrace"])
+
+# -------------------------
+# Code Coverage: Not available in REST API ApexTestResult by default
+# You may need a separate query to Tooling API: ApexCodeCoverageAggregate
+# For now, we'll stub this sheet with a message
+# -------------------------
+df_coverage = pd.DataFrame([["⚠️ Code coverage data not available via ApexTestResult API."]], columns=["Message"])
+df_low_coverage = pd.DataFrame([["N/A"]], columns=["Message"])
+
+# -------------------------
+# Save Excel Report
+# -------------------------
 with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_tests.to_excel(writer, sheet_name="Test Results", index=False)
     df_component_failures.to_excel(writer, sheet_name="Component Failures", index=False)
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print(" test-results.xlsx generated with multiple sheets.")
+print("test-results.xlsx generated with multiple sheets.")
