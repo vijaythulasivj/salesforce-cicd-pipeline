@@ -432,9 +432,7 @@ pipeline {
                     echo "➡️ Test Run ID: ${testRunId}"
         
                     echo '🧪 Fetching detailed test results from REST API...'
-                    bat """
-                    powershell -ExecutionPolicy Bypass -File scripts\\fetch_test_results.ps1 -TestRunId "${testRunId}" -Alias ${env.ALIAS}
-                    """
+                    bat '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" scripts\\generate_validation_report.py'
         
                     echo '🐍 Generating Excel report from test results...'
                     bat "${env.PYTHON_EXE} scripts\\generate_validation_report.py"
