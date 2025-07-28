@@ -246,7 +246,7 @@ pipeline {
                 }
             }
         }
-        
+        /* 
         stage('🔍 Step 0: Validate CLI Execution') {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
@@ -288,6 +288,47 @@ pipeline {
                     archiveArtifacts artifacts: '*.csv', allowEmptyArchive: true
         
                     echo '✅ CSV report generated and archived.'
+                }
+            }
+        }
+        */
+        stage('🔍 Step 0: Validate CLI Execution') {
+            when { expression { !params.REDEPLOY_METADATA } }
+            steps {
+                script {
+                    echo '📁 Current working directory:'
+                    bat 'cd'
+        
+                    echo '🔧 Validating sf CLI and running dry-run deployment...'
+        
+                    bat """
+                        @echo off
+                        %SF_CMD% deploy metadata validate ^
+                            --source-dir force-app/main/default/classes ^
+                            --target-org myAlias ^
+                            --test-level RunSpecifiedTests ^
+                            --tests ASKYTightestMatchServiceImplTest ^
+                            --json > deploy-result.json
+                    """
+        
+                    echo '🧪 Running Apex tests with JSON output...'
+                    bat """
+                        @echo off
+                        %SF_CMD% apex run test ^
+                            --tests ASKYTightestMatchServiceImplTest ^
+                            --target-org myAlias ^
+                            --code-coverage ^
+                            --test-level RunSpecifiedTests ^
+                            --json > test-result.json
+                    """
+        
+                    echo '🐍 Generating Excel report from JSON results...'
+                    bat '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" scripts\\generate_validation_report.py'
+        
+                    echo '📂 Archiving Excel report...'
+                    archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
+        
+                    echo '✅ Excel report generated and archived.'
                 }
             }
         }
