@@ -420,22 +420,24 @@ pipeline {
                         --json > test-run.json
                     """
         
-                    // ✅ Extract testRunId safely using powershell step
-                    def testRunId = powershell(
-                        script: "(Get-Content 'test-run.json' | ConvertFrom-Json).result.testRunId",
-                        returnStdout: true
-                    ).trim()
+                    // ✅ Extract testRunId from test-run.json using Jenkins readJSON
+                    def testRunJson = readJSON file: 'test-run.json'
+                    def testRunId = testRunJson?.result?.testRunId?.trim()
         
                     if (!testRunId) {
                         error "❌ testRunId not found in test-run.json! Failing pipeline."
                     }
+        
                     echo "➡️ Test Run ID: ${testRunId}"
         
-                    echo '🧪 Fetching detailed test results from REST API...'
-                    bat '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" scripts\\generate_validation_report.py'
-        
-                    echo '🐍 Generating Excel report from test results...'
-                    bat "${env.PYTHON_EXE} scripts\\generate_validation_report.py"
+                    echo '🧪 Fetching detailed test results from REST API and generating Excel report...'
+                    withEnv([
+                        "TEST_RUN_ID=${testRunId}",
+                        "SF_ALIAS=${env.ALIAS}",
+                        "PYTHONIOENCODING=utf-8"
+                    ]) {
+                        bat "\"${env.PYTHON_EXE}\" scripts\\generate_validation_report.py"
+                    }
         
                     echo '📂 Archiving Excel report...'
                     archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
