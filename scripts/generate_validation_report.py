@@ -8,21 +8,24 @@ import requests
 TEST_RUN_ID = os.getenv("TEST_RUN_ID") or "707fZ000001XtOe"  # You can pass this from Jenkins
 ALIAS = os.getenv("SF_ALIAS") or "myAlias"  # Jenkins env variable or default alias
 
+# Full path to sf.cmd (Option 1)
+SF_CMD_PATH = r"C:\Program Files\sf\bin\sf.cmd"
+
 # === Step 1: Load deployment validation JSON ===
 with open("deploy-result.json", encoding="utf-8") as f:
     deploy_data = json.load(f)
 
 # === Step 2: Fetch Apex test result via REST API ===
 def fetch_test_results(test_run_id, alias):
-    print(f" Getting access token from alias: {alias}...")
-    sf_cmd = ["sf", "org", "display", "--target-org", alias, "--json"]
+    print(f"Getting access token from alias: {alias}...")
+    sf_cmd = [SF_CMD_PATH, "org", "display", "--target-org", alias, "--json"]
     sf_output = subprocess.run(sf_cmd, capture_output=True, text=True, check=True)
     sf_info = json.loads(sf_output.stdout)
 
     access_token = sf_info['result']['accessToken']
     instance_url = sf_info['result']['instanceUrl']
 
-    print(f"querying ApexTestResult from Tooling API...")
+    print("Querying ApexTestResult from Tooling API...")
     query = f"""
     SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId
     FROM ApexTestResult
