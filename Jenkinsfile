@@ -399,7 +399,7 @@ pipeline {
                 script {
                     echo '📁 Current working directory:'
                     bat 'cd'
-
+        
                     echo '🔧 Validating sf CLI and running dry-run deployment...'
                     bat """
                     %SF_CMD% deploy metadata validate ^
@@ -409,7 +409,7 @@ pipeline {
                         --tests ASKYTightestMatchServiceImplTest ^
                         --json > deploy-result.json
                     """
-
+        
                     echo '🧪 Running Apex tests (initial run to get testRunId)...'
                     bat """
                     %SF_CMD% apex run test ^
@@ -419,28 +419,29 @@ pipeline {
                         --test-level RunSpecifiedTests ^
                         --json > test-run.json
                     """
-
-                    def testRunId = bat(
-                        script: 'powershell -Command "(Get-Content test-run.json | ConvertFrom-Json).result.testRunId"',
+        
+                    // ✅ Extract testRunId safely using powershell step
+                    def testRunId = powershell(
+                        script: "(Get-Content 'test-run.json' | ConvertFrom-Json).result.testRunId",
                         returnStdout: true
                     ).trim()
-
+        
                     if (!testRunId) {
                         error "❌ testRunId not found in test-run.json! Failing pipeline."
                     }
                     echo "➡️ Test Run ID: ${testRunId}"
-
+        
                     echo '🧪 Fetching detailed test results from REST API...'
                     bat """
-                    powershell -File scripts\\fetch_test_results.ps1 -TestRunId ${testRunId} -Alias %ALIAS%
+                    powershell -ExecutionPolicy Bypass -File scripts\\fetch_test_results.ps1 -TestRunId "${testRunId}" -Alias ${env.ALIAS}
                     """
-
+        
                     echo '🐍 Generating Excel report from test results...'
                     bat "${env.PYTHON_EXE} scripts\\generate_validation_report.py"
-
+        
                     echo '📂 Archiving Excel report...'
                     archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
-
+        
                     echo '✅ Excel report generated and archived.'
                 }
             }
