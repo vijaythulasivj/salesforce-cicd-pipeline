@@ -205,7 +205,7 @@ pipeline {
     }
 }
 */
-
+/*
 pipeline {
     agent any
 
@@ -246,40 +246,7 @@ pipeline {
                 }
             }
         }
-        /*
-        stage('🔍 Step 0: Validate CLI Execution') {
-            when { expression { !params.REDEPLOY_METADATA } }
-            steps {
-                script {
-                    echo 'Current working directory:'
-                    bat 'cd'
-                    echo '🔧 Checking that sf CLI runs and prints version...'
-
-                    def versionOutput = bat(script: "%SF_CMD% --version", returnStdout: true).trim()
-                    echo "📦 sf CLI version output:\n${versionOutput}"
-
-                    echo '🔧 Checking deploy command prints something:'
-
-                    def dryRunOutput = bat(
-                        script: """
-                            @echo off
-                            echo >> Starting validation dry-run...
-                            %SF_CMD% deploy metadata validate ^
-                              --source-dir force-app/main/default/classes ^
-                              --target-org myAlias ^
-                              --test-level RunSpecifiedTests ^
-                              --tests ASKYTightestMatchServiceImplTest ^
-                              --json
-                            echo >> End of dry-run CLI output
-                        """,
-                        returnStdout: true
-                    ).trim()
-
-                    echo "🖨️ Raw deploy output:\n${dryRunOutput}"
-                }
-            }
-        }
-        */
+        
         stage('🔍 Step 0: Validate CLI Execution') {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
@@ -310,6 +277,94 @@ pipeline {
                     archiveArtifacts artifacts: '*.csv', allowEmptyArchive: true
         
                     echo '✅ CSV report generated and archived.'
+                }
+            }
+        }
+    }
+}
+*/
+pipeline {
+    agent any
+
+    environment {
+        CONSUMER_KEY = credentials('sf-consumer-key')
+        SF_USERNAME = credentials('sf-username')
+        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"' // ✅ Define once here
+    }
+
+    parameters {
+        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
+    }
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('salesforce-cli:latest')
+                }
+            }
+        }
+
+        stage('Authenticate Salesforce') { 
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                      %SF_CMD% auth jwt grant ^
+                        --client-id %CONSUMER_KEY% ^
+                        --jwt-key-file "%JWT_KEY%" ^
+                        --username %SF_USERNAME% ^
+                        --instance-url https://test.salesforce.com ^
+                        --alias myAlias ^
+                        --set-default ^
+                        --no-prompt
+                    """
+
+                    bat 'echo ✅ Authenticated successfully.'
+                }
+            }
+        }
+        stage('🔍 Step 0: Validate and Report') {
+            when { expression { !params.REDEPLOY_METADATA } }
+            steps {
+                script {
+                    echo '📁 Checking working directory:'
+                    bat 'cd'
+        
+                    echo '🔧 Step 1: Validating deployment metadata...'
+                    bat """
+                        @echo off
+                        %SF_CMD% deploy metadata validate ^
+                            --source-dir force-app/main/default/classes ^
+                            --target-org myAlias ^
+                            --test-level RunSpecifiedTests ^
+                            --tests ASKYTightestMatchServiceImplTest ^
+                            --json > deploy-result.json
+                    """
+        
+                    echo '🧪 Step 2: Running tests for accurate code coverage...'
+                    bat """
+                        @echo off
+                        %SF_CMD% apex run test ^
+                            --tests ASKYTightestMatchServiceImplTest ^
+                            --target-org myAlias ^
+                            --code-coverage ^
+                            --test-level RunSpecifiedTests ^
+                            --json > test-result.json
+                    """
+        
+                    echo '🧩 Step 3: Merging deploy and test results...'
+                    bat """
+                        @echo off
+                        type deploy-result.json > combined-result.json
+                        powershell -Command "$deploy = Get-Content deploy-result.json | ConvertFrom-Json; $test = Get-Content test-result.json | ConvertFrom-Json; $deploy.testRunResult = $test.result; $deploy | ConvertTo-Json -Depth 10 | Set-Content combined-result.json"
+                    """
+        
+                    echo '📊 Step 4: Generating Excel report...'
+                    bat '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" scripts\\generate_validation_report.py combined-result.json'
+        
+                    archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
+        
+                    echo '✅ Excel report generated and archived.'
                 }
             }
         }
