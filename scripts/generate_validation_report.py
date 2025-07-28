@@ -1,18 +1,45 @@
 import json
 import pandas as pd
 import os
+import subprocess
+import requests
 
-# Load deployment validation JSON
+# === CONFIG ===
+TEST_RUN_ID = os.getenv("TEST_RUN_ID") or "707fZ000001XtOe"  # You can pass this from Jenkins
+ALIAS = os.getenv("SF_ALIAS") or "myAlias"  # Jenkins env variable or default alias
+
+# === Step 1: Load deployment validation JSON ===
 with open("deploy-result.json", encoding="utf-8") as f:
     deploy_data = json.load(f)
 
-# Load ApexTestResult JSON from REST API
-with open("test-result.json", encoding="utf-8") as f:
-    test_data = json.load(f)
+# === Step 2: Fetch Apex test result via REST API ===
+def fetch_test_results(test_run_id, alias):
+    print(f"🔐 Getting access token from alias: {alias}...")
+    sf_cmd = ["sf", "org", "display", "--target-org", alias, "--json"]
+    sf_output = subprocess.run(sf_cmd, capture_output=True, text=True, check=True)
+    sf_info = json.loads(sf_output.stdout)
 
-# -------------------------
-# Component Failures Sheet
-# -------------------------
+    access_token = sf_info['result']['accessToken']
+    instance_url = sf_info['result']['instanceUrl']
+
+    print(f"📡 Querying ApexTestResult from Tooling API...")
+    query = f"""
+    SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId
+    FROM ApexTestResult
+    WHERE AsyncApexJobId = '{test_run_id}'
+    """
+    encoded_query = requests.utils.quote(query)
+    url = f"{instance_url}/services/data/v58.0/tooling/query?q={encoded_query}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+# === Step 3: Call the function to get test results ===
+test_data = fetch_test_results(TEST_RUN_ID, ALIAS)
+
+# === Step 4: Component Failures Sheet ===
 deploy_details = deploy_data.get("result", {}).get("details", {})
 component_failures = deploy_details.get("componentFailures", [])
 
@@ -25,9 +52,7 @@ if component_failures:
 else:
     df_component_failures = pd.DataFrame([["✅ No component failures detected."]], columns=["Message"])
 
-# -------------------------
-# Test Results Sheet
-# -------------------------
+# === Step 5: Test Results Sheet ===
 records = test_data.get("records", [])
 
 test_rows = []
@@ -42,21 +67,15 @@ for rec in records:
 
 df_tests = pd.DataFrame(test_rows, columns=["TestClass", "Method", "Outcome", "Message", "StackTrace"])
 
-# -------------------------
-# Code Coverage: Not available in REST API ApexTestResult by default
-# You may need a separate query to Tooling API: ApexCodeCoverageAggregate
-# For now, we'll stub this sheet with a message
-# -------------------------
+# === Step 6: Code Coverage Stub Sheet ===
 df_coverage = pd.DataFrame([["⚠️ Code coverage data not available via ApexTestResult API."]], columns=["Message"])
 df_low_coverage = pd.DataFrame([["N/A"]], columns=["Message"])
 
-# -------------------------
-# Save Excel Report
-# -------------------------
+# === Step 7: Save Excel Report ===
 with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_tests.to_excel(writer, sheet_name="Test Results", index=False)
     df_component_failures.to_excel(writer, sheet_name="Component Failures", index=False)
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print("test-results.xlsx generated with multiple sheets.")
+print("✅ test-results.xlsx generated with multiple sheets.")
