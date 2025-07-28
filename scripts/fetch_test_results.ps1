@@ -16,8 +16,11 @@ Write-Host "📡 Querying REST API for test run ID: $TestRunId..."
 # Prepare REST API query
 $headers = @{ Authorization = "Bearer $accessToken" }
 
-# ✅ Correctly quoted SOQL query
-$query = "SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId FROM ApexTestResult WHERE AsyncApexJobId = '$TestRunId'"
+$query = @"
+SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId 
+FROM ApexTestResult 
+WHERE AsyncApexJobId = '$TestRunId'
+"@
 
 $encodedQuery = [System.Web.HttpUtility]::UrlEncode($query)
 
