@@ -399,7 +399,7 @@ pipeline {
                 script {
                     echo '📁 Current working directory:'
                     bat 'cd'
-
+        
                     echo '🔧 Validating sf CLI and running dry-run deployment...'
                     bat """
                     %SF_CMD% deploy metadata validate ^
@@ -409,7 +409,7 @@ pipeline {
                         --tests ASKYTightestMatchServiceImplTest ^
                         --json > deploy-result.json
                     """
-
+        
                     echo '🧪 Running Apex tests (initial run to get testRunId)...'
                     bat """
                     %SF_CMD% apex run test ^
@@ -419,31 +419,34 @@ pipeline {
                         --test-level RunSpecifiedTests ^
                         --json > test-run.json
                     """
-
-                    // Extract testRunId from JSON using PowerShell
-                    def testRunId = bat(
-                        script: 'powershell -Command "(Get-Content test-run.json | ConvertFrom-Json).result.testRunId"',
+        
+                    // Extract testRunId from JSON using PowerShell and clean output
+                    def testRunIdOutput = bat(
+                        script: '@powershell -Command "(Get-Content test-run.json | ConvertFrom-Json).result.testRunId"',
                         returnStdout: true
                     ).trim()
-
+        
+                    // Extract last non-empty line (to avoid extra output)
+                    def testRunId = testRunIdOutput.readLines().findAll { it.trim() }.last()
+        
                     if (!testRunId) {
                         error "❌ testRunId not found in test-run.json! Failing pipeline."
                     }
                     echo "➡️ Test Run ID: ${testRunId}"
-
+        
                     echo '🧪 Fetching full detailed test run results...'
                     bat """
                     %SF_CMD% apex run test get ^
                         --test-run-id ${testRunId} ^
                         --json > test-result.json
                     """
-
+        
                     echo '🐍 Generating Excel report from detailed test results...'
                     bat "${env.PYTHON_EXE} scripts\\generate_validation_report.py"
-
+        
                     echo '📂 Archiving Excel report...'
                     archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
-
+        
                     echo '✅ Excel report generated and archived.'
                 }
             }
