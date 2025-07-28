@@ -353,12 +353,10 @@ pipeline {
                     """
         
                     echo '🧩 Step 3: Merging deploy and test results...'
-                    bat """
-                        @echo off
-                        type deploy-result.json > combined-result.json
-                        powershell -Command "$$deploy = Get-Content deploy-result.json | ConvertFrom-Json; $$test = Get-Content test-result.json | ConvertFrom-Json; $$deploy.testRunResult = $$test.result; $$deploy | ConvertTo-Json -Depth 10 | Set-Content combined-result.json"
-                    """
-
+                    bat '''@echo off
+                    type deploy-result.json > combined-result.json
+                    powershell -Command "$deploy = Get-Content deploy-result.json | ConvertFrom-Json; $test = Get-Content test-result.json | ConvertFrom-Json; $deploy.testRunResult = $test.result; $deploy | ConvertTo-Json -Depth 10 | Set-Content combined-result.json"
+                    '''
         
                     echo '📊 Step 4: Generating Excel report...'
                     bat '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" scripts\\generate_validation_report.py combined-result.json'
