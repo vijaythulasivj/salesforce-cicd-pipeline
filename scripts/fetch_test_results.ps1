@@ -16,7 +16,7 @@ $headers = @{ Authorization = "Bearer $accessToken" }
 $query = @"
 SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId 
 FROM ApexTestResult 
-WHERE AsyncApexJobId = "$TestRunId"
+WHERE AsyncApexJobId = '$TestRunId'
 "@
 
 $encodedQuery = [System.Web.HttpUtility]::UrlEncode($query)
