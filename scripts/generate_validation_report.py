@@ -29,11 +29,12 @@ def fetch_test_results(test_run_id, alias):
     instance_url = sf_info['result']['instanceUrl']
 
     print("Querying ApexTestResult from Tooling API...")
-    query = f"""
-    SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId
-    FROM ApexTestResult
-    WHERE AsyncApexJobId = '{test_run_id}'
-    """
+
+    # FIX: Single-line, clean query to avoid 400 Bad Request
+    query = (
+        "SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId "
+        f"FROM ApexTestResult WHERE AsyncApexJobId = '{test_run_id}'"
+    )
     encoded_query = requests.utils.quote(query)
     url = f"{instance_url}/services/data/v58.0/tooling/query?q={encoded_query}"
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -84,4 +85,4 @@ with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print("test-results.xlsx generated with multiple sheets.")
+print("✅ test-results.xlsx generated with multiple sheets.")
