@@ -1,13 +1,17 @@
 import json
 import pandas as pd
 
-# Load deployment validation JSON
-with open("deploy-result.json", encoding="utf-8") as f:
-    deploy_data = json.load(f)
+def load_json_file(filename):
+    try:
+        with open(filename, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"❌ Error loading {filename}: {e}")
+        return {}
 
-# Load detailed test run JSON
-with open("test-result.json", encoding="utf-8") as f:
-    test_data = json.load(f)
+# Load JSON files
+deploy_data = load_json_file("deploy-result.json")
+test_data = load_json_file("test-result.json")
 
 # Extract deployment metadata failures
 deploy_details = deploy_data.get("result", {}).get("details", {})
@@ -15,7 +19,8 @@ component_failures = deploy_details.get("componentFailures", [])
 
 # Extract detailed test run results
 test_details = test_data.get("result", {})
-run_test_result = test_details.get("runTestResult", {}) or test_details  # fallback if no runTestResult property
+# runTestResult may be nested or top-level fallback
+run_test_result = test_details.get("runTestResult", {}) or test_details
 
 successes = run_test_result.get("successes", [])
 failures = run_test_result.get("failures", [])
@@ -37,6 +42,7 @@ for test in failures:
         test.get("time", "N/A"),
         "Failure"
     ])
+
 df_tests = pd.DataFrame(test_rows, columns=["TestClass", "Method", "Time(ms)", "Status"])
 
 # Prepare Component Failures Sheet
@@ -76,4 +82,4 @@ with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print("test-results.xlsx generated with multiple sheets.")
+print(" test-results.xlsx generated with multiple sheets.")
