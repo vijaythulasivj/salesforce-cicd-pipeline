@@ -43,7 +43,7 @@ else:
 
 # === Step 4: Parse destructiveChanges.xml ===
 destructive_classes = []
-tree = ET.parse("salesforce-cicd-pipeline/destructive/destructiveChanges.xml")
+tree = ET.parse("destructive/destructiveChanges.xml")
 root = tree.getroot()
 namespace = {"ns": "http://soap.sforce.com/2006/04/metadata"}
 
