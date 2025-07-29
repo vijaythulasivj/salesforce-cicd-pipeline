@@ -82,12 +82,50 @@ for class_name in destructive_classes:
     percent = (data["covered"] / total * 100) if total > 0 else 0.0
     coverage_rows.append([class_name, data["covered"], data["uncovered"], f"{percent:.2f}%"])
 
-# === Step 6: Export to Excel ===
 df_coverage = pd.DataFrame(coverage_rows, columns=["Class", "LinesCovered", "LinesUncovered", "CoveragePercent"])
 df_low_coverage = df_coverage[df_coverage["CoveragePercent"].apply(lambda x: float(x.strip('%')) < 75)]
 
+# === Step 6: Fetch ApexTestResult from Tooling API ===
+print(" Fetching ApexTestResult records...")
+test_query = f"""
+    SELECT ApexClass.Name, MethodName, Outcome, Message, StackTrace
+    FROM ApexTestResult
+    WHERE AsyncApexJobId = '{TEST_RUN_ID}'
+"""
+test_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(test_query)}"
+test_resp = requests.get(test_url, headers=headers)
+test_records = test_resp.json().get("records", [])
+
+test_rows = [
+    [
+        rec.get("ApexClass", {}).get("Name", ""),
+        rec.get("MethodName", ""),
+        rec.get("Outcome", ""),
+        rec.get("Message", "") or "",
+        rec.get("StackTrace", "") or ""
+    ]
+    for rec in test_records
+]
+df_tests = pd.DataFrame(test_rows, columns=["TestClass", "Method", "Outcome", "Message", "StackTrace"])
+
+# === Step 7: Extract Component Failures ===
+deploy_details = deploy_data.get("result", {}).get("details", {})
+component_failures = deploy_details.get("componentFailures", [])
+
+if component_failures:
+    component_rows = [
+        [fail.get("fileName", "Unknown"), fail.get("problem", "No details")]
+        for fail in component_failures
+    ]
+    df_component_failures = pd.DataFrame(component_rows, columns=["FileName", "Problem"])
+else:
+    df_component_failures = pd.DataFrame([["No component failures detected."]], columns=["Message"])
+
+# === Step 8: Write everything to Excel ===
 with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
+    df_tests.to_excel(writer, sheet_name="Test Results", index=False)
+    df_component_failures.to_excel(writer, sheet_name="Component Failures", index=False)
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print(" Coverage written to test-results.xlsx")
+print(" test-results.xlsx generated with full report.")
