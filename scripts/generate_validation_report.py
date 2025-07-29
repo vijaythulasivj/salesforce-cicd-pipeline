@@ -68,7 +68,16 @@ coverage_query = f"""
 """
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
 resp = requests.get(coverage_url, headers=headers)
-records = resp.json().get("records", [])
+
+try:
+    json_data = resp.json()
+except ValueError:
+    raise RuntimeError(f"Invalid JSON response from coverage query:\n{resp.text}")
+
+if not isinstance(json_data, dict) or "records" not in json_data:
+    raise RuntimeError(f"Unexpected response structure:\n{json_data}")
+
+records = json_data["records"]
 
 for rec in records:
     name = rec["ApexClass"]["Name"]
