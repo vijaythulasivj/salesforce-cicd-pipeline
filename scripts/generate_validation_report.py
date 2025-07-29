@@ -27,39 +27,44 @@ access_token = sf_info['result']['accessToken']
 instance_url = sf_info['result']['instanceUrl']
 headers = {"Authorization": f"Bearer {access_token}"}
 
-# === Step 3: Wait until test run is completed ===
-print("⏳ Waiting for test run to complete...")
+# === Step 3: Wait until test run is completed via Tooling API polling ===
+print("⏳ Waiting for test run to complete (via Tooling API ApexTestQueueItem status)...")
+
+status_url = f"{instance_url}/services/data/v58.0/tooling/query"
+query = f"""
+    SELECT Status
+    FROM ApexTestQueueItem
+    WHERE ParentJobId = '{TEST_RUN_ID}'
+    LIMIT 1
+"""
+encoded_query = requests.utils.quote(query)
+full_url = f"{status_url}?q={encoded_query}"
+
+status = None
 for i in range(10):
     print(f"🔁 Poll {i + 1} for test run status...")
     try:
-        status_cmd = [
-            SF_CMD_PATH, "apex", "get", "test",
-            "--test-run-id", TEST_RUN_ID,
-            "--target-org", ALIAS,
-            "--json"
-        ]
-        status_output = subprocess.run(status_cmd, capture_output=True, text=True, check=True)
-
-        try:
-            status_json = json.loads(status_output.stdout)
-        except json.JSONDecodeError as e:
-            print(f"❌ Failed to parse JSON: {e}")
-            print("Output was:", status_output.stdout)
+        resp = requests.get(full_url, headers=headers)
+        if resp.status_code != 200:
+            print(f"❌ Failed to query status: {resp.status_code} - {resp.text}")
             time.sleep(5)
             continue
 
-        result = status_json.get("result", {})
-        status = result.get("status")
-        print(f"🔁 Status = {status}")
+        records = resp.json().get("records", [])
+        if records:
+            status = records[0].get("Status")
+            print(f"🔁 Status = {status}")
 
-        if status == "Completed":
-            break
-        elif status in ("Failed", "Aborted"):
-            raise RuntimeError(f"❌ Test run {status}. Exiting early.")
+            if status == "Completed":
+                break
+            elif status in ("Failed", "Aborted", "Canceled"):
+                raise RuntimeError(f"❌ Test run {status}. Exiting early.")
+        else:
+            print("🔍 No status records found yet.")
 
-    except subprocess.CalledProcessError as err:
-        print(f"❌ CLI error while checking test status: {err}")
-    
+    except Exception as e:
+        print(f"❌ Exception during polling: {str(e)}")
+
     time.sleep(5)
 else:
     raise RuntimeError("❌ Test run did not complete after 10 polls. Check for org or CLI issues.")
@@ -153,4 +158,4 @@ with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print(" test-results.xlsx generated with full results.")
+print("test-results.xlsx generated with full results.")
