@@ -50,30 +50,35 @@ for type_tag in root.findall("ns:types", namespace):
     if type_tag.find("ns:name", namespace).text == "ApexClass":
         destructive_classes += [m.text for m in type_tag.findall("ns:members", namespace)]
 
-# === Step 5: Fetch code coverage with retry ===
-print(" Fetching ApexCodeCoverageAggregate...")
-coverage_query = "SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered FROM ApexCodeCoverageAggregate"
-coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
-
+# === Step 5 (Fixed): Fetch code coverage from ApexCodeCoverage ===
+print(" Fetching ApexCodeCoverage for accurate test-run coverage...")
+if not destructive_classes:
+    print(" No ApexClass entries in destructiveChanges.xml.")
 coverage_map = {}
-for attempt in range(10):
-    resp = requests.get(coverage_url, headers=headers)
-    records = resp.json().get("records", [])
-    if records:
-        print(f" Retrieved {len(records)} coverage records on attempt {attempt+1}")
-        for rec in records:
-            apex_obj = rec.get("ApexClassOrTrigger")
-            if apex_obj:
-                name = apex_obj.get("Name")
-                covered = rec.get("NumLinesCovered", 0)
-                uncovered = rec.get("NumLinesUncovered", 0)
-                coverage_map[name] = {"covered": covered, "uncovered": uncovered}
-        break
+
+# Format IN clause with escaped class names
+escaped_class_list = ",".join([f"'{cls}'" for cls in destructive_classes])
+coverage_query = f"""
+    SELECT ApexClass.Name, NumLinesCovered, NumLinesUncovered
+    FROM ApexCodeCoverage
+    WHERE ApexClass.Name IN ({escaped_class_list})
+    AND ApexTestClassId IN (
+        SELECT Id FROM ApexTestResult WHERE AsyncApexJobId = '{TEST_RUN_ID}'
+    )
+"""
+coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
+resp = requests.get(coverage_url, headers=headers)
+records = resp.json().get("records", [])
+
+for rec in records:
+    name = rec["ApexClass"]["Name"]
+    covered = rec["NumLinesCovered"]
+    uncovered = rec["NumLinesUncovered"]
+    if name in coverage_map:
+        coverage_map[name]["covered"] += covered
+        coverage_map[name]["uncovered"] += uncovered
     else:
-        print(f" Attempt {attempt+1}: No coverage data yet, retrying...")
-        time.sleep(5)
-else:
-    print(" No coverage data found after retries.")
+        coverage_map[name] = {"covered": covered, "uncovered": uncovered}
 
 # === Step 6: Build coverage report ===
 coverage_rows = []
