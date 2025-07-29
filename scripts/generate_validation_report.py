@@ -59,15 +59,22 @@ coverage_query = """
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
 resp = requests.get(coverage_url, headers=headers)
 
-coverage_map = {
-    rec["ApexClassOrTrigger"]["Name"]: {
-        "covered": rec["NumLinesCovered"],
-        "uncovered": rec["NumLinesUncovered"]
-    }
-    for rec in resp.json().get("records", [])
-}
+coverage_map = {}
 
-# Fill in zero-coverage for missing ones
+for rec in resp.json().get("records", []):
+    apex_obj = rec.get("ApexClassOrTrigger")
+    if apex_obj is None:
+        print(f" Skipping record with null ApexClassOrTrigger: {rec}")
+        continue
+    name = apex_obj.get("Name")
+    covered = rec.get("NumLinesCovered", 0)
+    uncovered = rec.get("NumLinesUncovered", 0)
+    coverage_map[name] = {
+        "covered": covered,
+        "uncovered": uncovered
+    }
+
+# Fill in zero-coverage for missing classes
 coverage_rows = []
 for class_name in destructive_classes:
     data = coverage_map.get(class_name, {"covered": 0, "uncovered": 0})
@@ -83,4 +90,4 @@ with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print("✅ Coverage written to test-results.xlsx")
+print(" Coverage written to test-results.xlsx")
