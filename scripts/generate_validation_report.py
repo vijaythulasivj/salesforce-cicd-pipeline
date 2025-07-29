@@ -104,7 +104,8 @@ coverage_rows = []
 if response.status_code == 200:
     coverage_records = response.json().get("records", [])
     for rec in coverage_records:
-        name = rec.get("ApexClassOrTrigger", {}).get("Name", "Unknown")
+        apex_obj = rec.get("ApexClassOrTrigger")
+        name = apex_obj.get("Name", "Unknown") if apex_obj else "Unknown"
         covered = rec.get("NumLinesCovered", 0)
         uncovered = rec.get("NumLinesUncovered", 0)
         total = covered + uncovered
