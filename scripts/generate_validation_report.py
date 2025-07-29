@@ -31,10 +31,12 @@ def fetch_test_results(test_run_id, alias):
 
     print("Querying ApexTestResult from Tooling API...")
 
-    query = (
-        "SELECT Id, Status, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId "
-        f"FROM ApexTestResult WHERE AsyncApexJobId = '{test_run_id}'"
-    )
+    query = f"""
+        SELECT Id, ApexClass.Name, MethodName, Outcome, Message, StackTrace, AsyncApexJobId
+        FROM ApexTestResult
+        WHERE AsyncApexJobId = '{test_run_id}'
+    """
+
     encoded_query = requests.utils.quote(query)
     url = f"{instance_url}/services/data/v58.0/tooling/query?q={encoded_query}"
     headers = {"Authorization": f"Bearer {access_token}"}
