@@ -28,7 +28,7 @@ instance_url = sf_info['result']['instanceUrl']
 headers = {"Authorization": f"Bearer {access_token}"}
 
 # === Step 3: Wait for test run to complete ===
-print("⏳ Waiting for test run to complete...")
+print(" Waiting for test run to complete...")
 query = f"SELECT Status FROM ApexTestQueueItem WHERE ParentJobId = '{TEST_RUN_ID}' LIMIT 1"
 status_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(query)}"
 for _ in range(10):
@@ -87,7 +87,7 @@ df_coverage = pd.DataFrame(coverage_rows, columns=["Class", "LinesCovered", "Lin
 df_low_coverage = df_coverage[df_coverage["CoveragePercent"].apply(lambda x: float(x.strip('%')) < 75)]
 
 # === Step 7: Fetch ApexTestResult from Tooling API ===
-print(" Fetching test method results...")
+print("Fetching test method results...")
 test_query = f"""
     SELECT ApexClass.Name, MethodName, Outcome, Message, StackTrace
     FROM ApexTestResult
@@ -123,7 +123,7 @@ else:
     df_component_failures = pd.DataFrame([["No component failures detected."]], columns=["Message"])
 
 # === Step 9: Write everything to Excel ===
-print("📤 Writing test-results.xlsx...")
+print(" Writing test-results.xlsx...")
 with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_tests.to_excel(writer, sheet_name="Test Results", index=False)
     df_component_failures.to_excel(writer, sheet_name="Component Failures", index=False)
