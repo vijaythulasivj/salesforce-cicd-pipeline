@@ -30,22 +30,39 @@ headers = {"Authorization": f"Bearer {access_token}"}
 # === Step 3: Wait until test run is completed ===
 print("⏳ Waiting for test run to complete...")
 for i in range(10):
-    status_cmd = [
-        SF_CMD_PATH, "apex", "get", "test",
-        "--test-run-id", TEST_RUN_ID,
-        "--target-org", ALIAS,
-        "--json"
-    ]
-    status_output = subprocess.run(status_cmd, capture_output=True, text=True)
-    status_json = json.loads(status_output.stdout)
-    status = status_json.get("result", {}).get("status")
+    print(f"🔁 Poll {i + 1} for test run status...")
+    try:
+        status_cmd = [
+            SF_CMD_PATH, "apex", "get", "test",
+            "--test-run-id", TEST_RUN_ID,
+            "--target-org", ALIAS,
+            "--json"
+        ]
+        status_output = subprocess.run(status_cmd, capture_output=True, text=True, check=True)
 
-    print(f"🔁 Poll {i + 1}: Test run status = {status}")
-    if status == "Completed":
-        break
+        try:
+            status_json = json.loads(status_output.stdout)
+        except json.JSONDecodeError as e:
+            print(f"❌ Failed to parse JSON: {e}")
+            print("Output was:", status_output.stdout)
+            time.sleep(5)
+            continue
+
+        result = status_json.get("result", {})
+        status = result.get("status")
+        print(f"🔁 Status = {status}")
+
+        if status == "Completed":
+            break
+        elif status in ("Failed", "Aborted"):
+            raise RuntimeError(f"❌ Test run {status}. Exiting early.")
+
+    except subprocess.CalledProcessError as err:
+        print(f"❌ CLI error while checking test status: {err}")
+    
     time.sleep(5)
 else:
-    raise RuntimeError("Test run did not complete after waiting.")
+    raise RuntimeError("❌ Test run did not complete after 10 polls. Check for org or CLI issues.")
 
 # === Step 4: Fetch ApexTestResult ===
 print("📥 Querying ApexTestResult...")
