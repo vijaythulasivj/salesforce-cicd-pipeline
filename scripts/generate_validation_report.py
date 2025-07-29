@@ -28,9 +28,8 @@ instance_url = sf_info['result']['instanceUrl']
 headers = {"Authorization": f"Bearer {access_token}"}
 
 # === Step 3: Wait for test run to complete ===
-query = f"""
-    SELECT Status FROM ApexTestQueueItem WHERE ParentJobId = '{TEST_RUN_ID}' LIMIT 1
-"""
+print("⏳ Waiting for test run to complete...")
+query = f"SELECT Status FROM ApexTestQueueItem WHERE ParentJobId = '{TEST_RUN_ID}' LIMIT 1"
 status_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(query)}"
 for _ in range(10):
     resp = requests.get(status_url, headers=headers)
@@ -51,30 +50,32 @@ for type_tag in root.findall("ns:types", namespace):
     if type_tag.find("ns:name", namespace).text == "ApexClass":
         destructive_classes += [m.text for m in type_tag.findall("ns:members", namespace)]
 
-# === Step 5: Fetch code coverage ===
-coverage_query = """
-    SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered
-    FROM ApexCodeCoverageAggregate
-"""
+# === Step 5: Fetch code coverage with retry ===
+print(" Fetching ApexCodeCoverageAggregate...")
+coverage_query = "SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered FROM ApexCodeCoverageAggregate"
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
-resp = requests.get(coverage_url, headers=headers)
 
 coverage_map = {}
+for attempt in range(10):
+    resp = requests.get(coverage_url, headers=headers)
+    records = resp.json().get("records", [])
+    if records:
+        print(f" Retrieved {len(records)} coverage records on attempt {attempt+1}")
+        for rec in records:
+            apex_obj = rec.get("ApexClassOrTrigger")
+            if apex_obj:
+                name = apex_obj.get("Name")
+                covered = rec.get("NumLinesCovered", 0)
+                uncovered = rec.get("NumLinesUncovered", 0)
+                coverage_map[name] = {"covered": covered, "uncovered": uncovered}
+        break
+    else:
+        print(f" Attempt {attempt+1}: No coverage data yet, retrying...")
+        time.sleep(5)
+else:
+    print(" No coverage data found after retries.")
 
-for rec in resp.json().get("records", []):
-    apex_obj = rec.get("ApexClassOrTrigger")
-    if apex_obj is None:
-        print(f" Skipping record with null ApexClassOrTrigger: {rec}")
-        continue
-    name = apex_obj.get("Name")
-    covered = rec.get("NumLinesCovered", 0)
-    uncovered = rec.get("NumLinesUncovered", 0)
-    coverage_map[name] = {
-        "covered": covered,
-        "uncovered": uncovered
-    }
-
-# Fill in zero-coverage for missing classes
+# === Step 6: Build coverage report ===
 coverage_rows = []
 for class_name in destructive_classes:
     data = coverage_map.get(class_name, {"covered": 0, "uncovered": 0})
@@ -85,8 +86,8 @@ for class_name in destructive_classes:
 df_coverage = pd.DataFrame(coverage_rows, columns=["Class", "LinesCovered", "LinesUncovered", "CoveragePercent"])
 df_low_coverage = df_coverage[df_coverage["CoveragePercent"].apply(lambda x: float(x.strip('%')) < 75)]
 
-# === Step 6: Fetch ApexTestResult from Tooling API ===
-print(" Fetching ApexTestResult records...")
+# === Step 7: Fetch ApexTestResult from Tooling API ===
+print(" Fetching test method results...")
 test_query = f"""
     SELECT ApexClass.Name, MethodName, Outcome, Message, StackTrace
     FROM ApexTestResult
@@ -108,7 +109,7 @@ test_rows = [
 ]
 df_tests = pd.DataFrame(test_rows, columns=["TestClass", "Method", "Outcome", "Message", "StackTrace"])
 
-# === Step 7: Extract Component Failures ===
+# === Step 8: Extract Component Failures ===
 deploy_details = deploy_data.get("result", {}).get("details", {})
 component_failures = deploy_details.get("componentFailures", [])
 
@@ -121,7 +122,8 @@ if component_failures:
 else:
     df_component_failures = pd.DataFrame([["No component failures detected."]], columns=["Message"])
 
-# === Step 8: Write everything to Excel ===
+# === Step 9: Write everything to Excel ===
+print("📤 Writing test-results.xlsx...")
 with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_tests.to_excel(writer, sheet_name="Test Results", index=False)
     df_component_failures.to_excel(writer, sheet_name="Component Failures", index=False)
