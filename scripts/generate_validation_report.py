@@ -70,12 +70,9 @@ print(" Fetching ApexCodeCoverage for accurate test-run coverage...")
 coverage_map = {}
 
 # Step 5.1: Query coverage records
-coverage_query = f"""
-    SELECT ApexClassOrTriggerId, NumLinesCovered, NumLinesUncovered
+coverage_query = """
+    SELECT ApexClassOrTriggerId, ApexTestClassId, NumLinesCovered, NumLinesUncovered
     FROM ApexCodeCoverage
-    WHERE ApexTestClassId IN (
-        SELECT Id FROM ApexTestResult WHERE AsyncApexJobId = '{TEST_RUN_ID}'
-    )
 """
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
 resp = requests.get(coverage_url, headers=headers)
