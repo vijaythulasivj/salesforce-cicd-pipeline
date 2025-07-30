@@ -28,15 +28,30 @@ instance_url = sf_info['result']['instanceUrl']
 headers = {"Authorization": f"Bearer {access_token}"}
 
 # === Step 3: Wait for test run to complete ===
-print(" Waiting for test run to complete...")
-query = f"SELECT Status FROM ApexTestQueueItem WHERE ParentJobId = '{TEST_RUN_ID}' LIMIT 1"
+print("⏳ Waiting for test run to complete...")
+
+query = f"SELECT Status FROM AsyncApexJob WHERE Id = '{TEST_RUN_ID}'"
 status_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(query)}"
-for _ in range(10):
+
+MAX_RETRIES = 30
+WAIT_SECONDS = 10
+
+for attempt in range(1, MAX_RETRIES + 1):
     resp = requests.get(status_url, headers=headers)
     records = resp.json().get("records", [])
-    if records and records[0]["Status"] == "Completed":
-        break
-    time.sleep(5)
+
+    if records:
+        status = records[0]["Status"]
+        print(f"  Attempt {attempt}: Test run status = {status}")
+        if status == "Completed":
+            print(" Test run completed.")
+            break
+        elif status in ("Aborted", "Failed"):
+            raise RuntimeError(f" Test run ended with status: {status}")
+    else:
+        print(f"  Attempt {attempt}: No status returned yet.")
+
+    time.sleep(WAIT_SECONDS)
 else:
     raise RuntimeError("Test run did not complete in time.")
 
@@ -50,13 +65,12 @@ for type_tag in root.findall("ns:types", namespace):
     if type_tag.find("ns:name", namespace).text == "ApexClass":
         destructive_classes += [m.text for m in type_tag.findall("ns:members", namespace)]
 
-# === Step 5 (Fixed): Fetch code coverage from ApexCodeCoverage ===
+# === Step 5: Fetch code coverage ===
 print(" Fetching ApexCodeCoverage for accurate test-run coverage...")
 if not destructive_classes:
     print(" No ApexClass entries in destructiveChanges.xml.")
 coverage_map = {}
 
-# Format IN clause with escaped class names
 escaped_class_list = ",".join([f"'{cls}'" for cls in destructive_classes])
 coverage_query = f"""
     SELECT ApexClass.Name, NumLinesCovered, NumLinesUncovered
@@ -100,8 +114,8 @@ for class_name in destructive_classes:
 df_coverage = pd.DataFrame(coverage_rows, columns=["Class", "LinesCovered", "LinesUncovered", "CoveragePercent"])
 df_low_coverage = df_coverage[df_coverage["CoveragePercent"].apply(lambda x: float(x.strip('%')) < 75)]
 
-# === Step 7: Fetch ApexTestResult from Tooling API ===
-print("Fetching test method results...")
+# === Step 7: Fetch ApexTestResult ===
+print(" Fetching test method results...")
 test_query = f"""
     SELECT ApexClass.Name, MethodName, Outcome, Message, StackTrace
     FROM ApexTestResult
@@ -136,12 +150,12 @@ if component_failures:
 else:
     df_component_failures = pd.DataFrame([["No component failures detected."]], columns=["Message"])
 
-# === Step 9: Write everything to Excel ===
-print(" Writing test-results.xlsx...")
+# === Step 9: Write Excel report ===
+print("📄 Writing test-results.xlsx...")
 with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_tests.to_excel(writer, sheet_name="Test Results", index=False)
     df_component_failures.to_excel(writer, sheet_name="Component Failures", index=False)
     df_coverage.to_excel(writer, sheet_name="Code Coverage", index=False)
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
-print(" test-results.xlsx generated with full report.")
+print(" test-results.xlsx generated successfully.")
