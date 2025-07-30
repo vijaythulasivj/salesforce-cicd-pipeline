@@ -28,7 +28,7 @@ instance_url = sf_info['result']['instanceUrl']
 headers = {"Authorization": f"Bearer {access_token}"}
 
 # === Step 3: Wait for test run to complete ===
-print("⏳ Waiting for test run to complete...")
+print(" Waiting for test run to complete...")
 
 query = f"SELECT Status FROM AsyncApexJob WHERE Id = '{TEST_RUN_ID}'"
 status_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(query)}"
@@ -67,41 +67,50 @@ for type_tag in root.findall("ns:types", namespace):
 
 # === Step 5: Fetch code coverage ===
 print(" Fetching ApexCodeCoverage for accurate test-run coverage...")
-if not destructive_classes:
-    print(" No ApexClass entries in destructiveChanges.xml.")
 coverage_map = {}
 
-escaped_class_list = ",".join([f"'{cls}'" for cls in destructive_classes])
+# Step 5.1: Query coverage records
 coverage_query = f"""
-    SELECT ApexClass.Name, NumLinesCovered, NumLinesUncovered
+    SELECT ApexClassOrTriggerId, NumLinesCovered, NumLinesUncovered
     FROM ApexCodeCoverage
-    WHERE ApexClass.Name IN ({escaped_class_list})
-    AND ApexTestClassId IN (
+    WHERE ApexTestClassId IN (
         SELECT Id FROM ApexTestResult WHERE AsyncApexJobId = '{TEST_RUN_ID}'
     )
 """
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
 resp = requests.get(coverage_url, headers=headers)
+coverage_records = resp.json().get("records", [])
 
-try:
-    json_data = resp.json()
-except ValueError:
-    raise RuntimeError(f"Invalid JSON response from coverage query:\n{resp.text}")
+# Step 5.2: Group by class ID
+class_coverage_data = {}
+class_ids = set()
 
-if not isinstance(json_data, dict) or "records" not in json_data:
-    raise RuntimeError(f"Unexpected response structure:\n{json_data}")
-
-records = json_data["records"]
-
-for rec in records:
-    name = rec["ApexClass"]["Name"]
-    covered = rec["NumLinesCovered"]
-    uncovered = rec["NumLinesUncovered"]
-    if name in coverage_map:
-        coverage_map[name]["covered"] += covered
-        coverage_map[name]["uncovered"] += uncovered
+for rec in coverage_records:
+    class_id = rec["ApexClassOrTriggerId"]
+    class_ids.add(class_id)
+    if class_id in class_coverage_data:
+        class_coverage_data[class_id]["covered"] += rec["NumLinesCovered"]
+        class_coverage_data[class_id]["uncovered"] += rec["NumLinesUncovered"]
     else:
-        coverage_map[name] = {"covered": covered, "uncovered": uncovered}
+        class_coverage_data[class_id] = {
+            "covered": rec["NumLinesCovered"],
+            "uncovered": rec["NumLinesUncovered"]
+        }
+
+# Step 5.3: Map class IDs to names
+id_to_name = {}
+if class_ids:
+    class_id_str = ",".join([f"'{cid}'" for cid in class_ids])
+    name_query = f"SELECT Id, Name FROM ApexClass WHERE Id IN ({class_id_str})"
+    name_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(name_query)}"
+    name_resp = requests.get(name_url, headers=headers)
+    name_records = name_resp.json().get("records", [])
+    id_to_name = {rec["Id"]: rec["Name"] for rec in name_records}
+
+# Step 5.4: Merge class name with coverage stats
+for class_id, data in class_coverage_data.items():
+    name = id_to_name.get(class_id, f"UnknownClass-{class_id}")
+    coverage_map[name] = data
 
 # === Step 6: Build coverage report ===
 coverage_rows = []
