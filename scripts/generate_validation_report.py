@@ -79,7 +79,21 @@ coverage_query = f"""
 """
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
 resp = requests.get(coverage_url, headers=headers)
-coverage_records = resp.json().get("records", [])
+
+# --- Patch begins ---
+try:
+    json_data = resp.json()
+except ValueError:
+    raise RuntimeError(f"Invalid JSON response from coverage query:\n{resp.text}")
+
+if isinstance(json_data, list):  # Salesforce returned an error array
+    raise RuntimeError(f"Salesforce API returned an error:\n{json.dumps(json_data, indent=2)}")
+
+if "records" not in json_data:
+    raise RuntimeError(f"Unexpected response structure from coverage query:\n{json.dumps(json_data, indent=2)}")
+
+coverage_records = json_data["records"]
+# --- Patch ends ---
 
 # Step 5.2: Group by class ID
 class_coverage_data = {}
