@@ -65,67 +65,37 @@ for type_tag in root.findall("ns:types", namespace):
     if type_tag.find("ns:name", namespace).text == "ApexClass":
         destructive_classes += [m.text for m in type_tag.findall("ns:members", namespace)]
 
-# === Step 5: Fetch code coverage ===
-print(" Fetching ApexCodeCoverage for accurate test-run coverage...")
+# === Step 5: Fetch accurate class-level code coverage using ApexCodeCoverageAggregate ===
+print(" Fetching accurate code coverage for destructive classes only...")
 coverage_map = {}
 
-# Step 5.1: Query coverage records
 coverage_query = """
-    SELECT ApexClassOrTriggerId, ApexTestClassId, NumLinesCovered, NumLinesUncovered
-    FROM ApexCodeCoverage
+    SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered
+    FROM ApexCodeCoverageAggregate
 """
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
 resp = requests.get(coverage_url, headers=headers)
 
-# --- Patch begins ---
 try:
     json_data = resp.json()
 except ValueError:
     raise RuntimeError(f"Invalid JSON response from coverage query:\n{resp.text}")
 
-if isinstance(json_data, list):  # Salesforce returned an error array
-    raise RuntimeError(f"Salesforce API returned an error:\n{json.dumps(json_data, indent=2)}")
-
 if "records" not in json_data:
     raise RuntimeError(f"Unexpected response structure from coverage query:\n{json.dumps(json_data, indent=2)}")
 
-coverage_records = json_data["records"]
-# --- Patch ends ---
+# Build coverage map only for destructive classes
+for rec in json_data["records"]:
+    name = rec["ApexClassOrTrigger"]["Name"]
+    if name in destructive_classes:
+        covered = rec["NumLinesCovered"]
+        uncovered = rec["NumLinesUncovered"]
+        coverage_map[name] = {"covered": covered, "uncovered": uncovered}
 
-# Step 5.2: Group by class ID
-class_coverage_data = {}
-class_ids = set()
-
-for rec in coverage_records:
-    class_id = rec["ApexClassOrTriggerId"]
-    class_ids.add(class_id)
-    if class_id in class_coverage_data:
-        class_coverage_data[class_id]["covered"] += rec["NumLinesCovered"]
-        class_coverage_data[class_id]["uncovered"] += rec["NumLinesUncovered"]
-    else:
-        class_coverage_data[class_id] = {
-            "covered": rec["NumLinesCovered"],
-            "uncovered": rec["NumLinesUncovered"]
-        }
-
-# Step 5.3: Map class IDs to names
-id_to_name = {}
-if class_ids:
-    class_id_str = ",".join([f"'{cid}'" for cid in class_ids])
-    name_query = f"SELECT Id, Name FROM ApexClass WHERE Id IN ({class_id_str})"
-    name_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(name_query)}"
-    name_resp = requests.get(name_url, headers=headers)
-    name_records = name_resp.json().get("records", [])
-    id_to_name = {rec["Id"]: rec["Name"] for rec in name_records}
-
-# Step 5.4: Merge class name with coverage stats
-for class_id, data in class_coverage_data.items():
-    name = id_to_name.get(class_id, f"UnknownClass-{class_id}")
-    coverage_map[name] = data
-
-# === Step 6: Build coverage report (updated to include all classes) ===
+# === Step 6: Build coverage report for only destructive classes ===
 coverage_rows = []
-for class_name, data in coverage_map.items():
+for class_name in destructive_classes:
+    data = coverage_map.get(class_name, {"covered": 0, "uncovered": 0})
     total = data["covered"] + data["uncovered"]
     percent = (data["covered"] / total * 100) if total > 0 else 0.0
     coverage_rows.append([class_name, data["covered"], data["uncovered"], f"{percent:.2f}%"])
