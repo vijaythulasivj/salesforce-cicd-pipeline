@@ -53,7 +53,7 @@ for attempt in range(1, MAX_RETRIES + 1):
 
     time.sleep(WAIT_SECONDS)
 else:
-    raise RuntimeError("Test run did not complete in time.")
+    raise RuntimeError(" Test run did not complete in time.")
 
 # === Step 4: Parse destructiveChanges.xml ===
 destructive_classes = []
@@ -65,8 +65,12 @@ for type_tag in root.findall("ns:types", namespace):
     if type_tag.find("ns:name", namespace).text == "ApexClass":
         destructive_classes += [m.text for m in type_tag.findall("ns:members", namespace)]
 
+print("Classes in destructiveChanges.xml:")
+for c in destructive_classes:
+    print(f" - {c}")
+
 # === Step 5: Fetch accurate class-level code coverage using ApexCodeCoverageAggregate ===
-print(" Fetching accurate code coverage for destructive classes only...")
+print("Fetching accurate code coverage for destructive classes only...")
 coverage_map = {}
 
 coverage_query = """
@@ -84,11 +88,18 @@ except ValueError:
 if "records" not in json_data:
     raise RuntimeError(f"Unexpected response structure from coverage query:\n{json.dumps(json_data, indent=2)}")
 
-# Build coverage map only for destructive classes, skip records with None ApexClassOrTrigger
+# Debug: print all returned class names
+print("\n📄 Classes returned by ApexCodeCoverageAggregate:")
 for rec in json_data["records"]:
     apex_obj = rec.get("ApexClassOrTrigger")
-    if apex_obj is None:
-        continue  # Skip entries without ApexClassOrTrigger
+    if apex_obj:
+        print(f" - {apex_obj.get('Name')}")
+
+# Build coverage map only for destructive classes
+for rec in json_data["records"]:
+    apex_obj = rec.get("ApexClassOrTrigger")
+    if not apex_obj:
+        continue  # Skip nulls safely
 
     name = apex_obj.get("Name")
     if name in destructive_classes:
@@ -96,13 +107,16 @@ for rec in json_data["records"]:
         uncovered = rec.get("NumLinesUncovered", 0)
         coverage_map[name] = {"covered": covered, "uncovered": uncovered}
 
-# === Step 6: Build coverage report for only destructive classes ===
+# === Step 6: Build coverage report ===
 coverage_rows = []
 for class_name in destructive_classes:
     data = coverage_map.get(class_name, {"covered": 0, "uncovered": 0})
     total = data["covered"] + data["uncovered"]
     percent = (data["covered"] / total * 100) if total > 0 else 0.0
     coverage_rows.append([class_name, data["covered"], data["uncovered"], f"{percent:.2f}%"])
+
+    if class_name not in coverage_map:
+        print(f" Warning: No coverage found for class '{class_name}'")
 
 df_coverage = pd.DataFrame(coverage_rows, columns=["Class", "LinesCovered", "LinesUncovered", "CoveragePercent"])
 df_low_coverage = df_coverage[df_coverage["CoveragePercent"].apply(lambda x: float(x.strip('%')) < 75)]
@@ -144,7 +158,7 @@ else:
     df_component_failures = pd.DataFrame([["No component failures detected."]], columns=["Message"])
 
 # === Step 9: Write Excel report ===
-print("📄 Writing test-results.xlsx...")
+print(" Writing test-results.xlsx...")
 with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_tests.to_excel(writer, sheet_name="Test Results", index=False)
     df_component_failures.to_excel(writer, sheet_name="Component Failures", index=False)
