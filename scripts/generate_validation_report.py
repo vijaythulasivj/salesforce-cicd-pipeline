@@ -69,17 +69,18 @@ print("Classes in destructiveChanges.xml:")
 for c in destructive_classes:
     print(f" - {c}")
 
-# === Step 5: Fetch class-level code coverage for destructive classes only ===
-print("📊 Fetching accurate code coverage for destructive classes only...")
+# === Step 5: Fetch class-level code coverage (aggregate) ===
+print("📊 Waiting for ApexCodeCoverageAggregate to update...")
+time.sleep(20)  # Allow Salesforce backend to update coverage
+
+print("📊 Fetching ApexCodeCoverageAggregate results...")
 
 coverage_map = {}
 
-coverage_query = f"""
+coverage_query = """
     SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered
-    FROM ApexCodeCoverage
-    WHERE ApexTestClassId IN (
-        SELECT ApexClassId FROM ApexTestResult WHERE AsyncApexJobId = '{TEST_RUN_ID}'
-    )
+    FROM ApexCodeCoverageAggregate
+    ORDER BY ApexClassOrTrigger.Name
 """
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
 resp = requests.get(coverage_url, headers=headers)
@@ -87,12 +88,12 @@ resp = requests.get(coverage_url, headers=headers)
 try:
     json_data = resp.json()
 except ValueError:
-    raise RuntimeError(f"Invalid JSON response from coverage query:\n{resp.text}")
+    raise RuntimeError(f"Invalid JSON response from aggregate coverage query:\n{resp.text}")
 
 if "records" not in json_data:
     raise RuntimeError(f"Unexpected response structure from coverage query:\n{json.dumps(json_data, indent=2)}")
 
-print("\n📄 Classes returned by ApexCodeCoverage:")
+print("\n📄 Classes returned by ApexCodeCoverageAggregate:")
 for rec in json_data["records"]:
     apex_obj = rec.get("ApexClassOrTrigger")
     if apex_obj:
