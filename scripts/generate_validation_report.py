@@ -170,3 +170,17 @@ with pd.ExcelWriter("test-results.xlsx", engine="openpyxl") as writer:
     df_low_coverage.to_excel(writer, sheet_name="Low Coverage (<75%)", index=False)
 
 print(" test-results.xlsx generated successfully.")
+
+# === Step 10: Auto-fail if any destructive class has coverage < threshold ===
+COVERAGE_THRESHOLD = 75.0
+
+low_coverage_classes = df_coverage[df_coverage["CoveragePercent"].apply(lambda x: float(x.strip('%')) < COVERAGE_THRESHOLD)]
+
+if not low_coverage_classes.empty:
+    print("\n❌ Build failed due to low coverage:")
+    for _, row in low_coverage_classes.iterrows():
+        print(f"  - {row['Class']} has only {row['CoveragePercent']} coverage")
+    raise SystemExit(1)
+else:
+    print("\n All destructive classes meet the minimum coverage threshold.")
+
