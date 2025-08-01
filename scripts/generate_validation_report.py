@@ -84,12 +84,16 @@ except ValueError:
 if "records" not in json_data:
     raise RuntimeError(f"Unexpected response structure from coverage query:\n{json.dumps(json_data, indent=2)}")
 
-# Build coverage map only for destructive classes
+# Build coverage map only for destructive classes, skip records with None ApexClassOrTrigger
 for rec in json_data["records"]:
-    name = rec["ApexClassOrTrigger"]["Name"]
+    apex_obj = rec.get("ApexClassOrTrigger")
+    if apex_obj is None:
+        continue  # Skip entries without ApexClassOrTrigger
+
+    name = apex_obj.get("Name")
     if name in destructive_classes:
-        covered = rec["NumLinesCovered"]
-        uncovered = rec["NumLinesUncovered"]
+        covered = rec.get("NumLinesCovered", 0)
+        uncovered = rec.get("NumLinesUncovered", 0)
         coverage_map[name] = {"covered": covered, "uncovered": uncovered}
 
 # === Step 6: Build coverage report for only destructive classes ===
