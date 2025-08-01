@@ -78,7 +78,7 @@ coverage_query = f"""
     SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered
     FROM ApexCodeCoverage
     WHERE ApexTestClassId IN (
-        SELECT Id FROM ApexTestResult WHERE AsyncApexJobId = '{TEST_RUN_ID}'
+        SELECT ApexClassId FROM ApexTestResult WHERE AsyncApexJobId = '{TEST_RUN_ID}'
     )
 """
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
