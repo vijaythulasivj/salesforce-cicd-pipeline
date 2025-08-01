@@ -123,10 +123,9 @@ for class_id, data in class_coverage_data.items():
     name = id_to_name.get(class_id, f"UnknownClass-{class_id}")
     coverage_map[name] = data
 
-# === Step 6: Build coverage report ===
+# === Step 6: Build coverage report (updated to include all classes) ===
 coverage_rows = []
-for class_name in destructive_classes:
-    data = coverage_map.get(class_name, {"covered": 0, "uncovered": 0})
+for class_name, data in coverage_map.items():
     total = data["covered"] + data["uncovered"]
     percent = (data["covered"] / total * 100) if total > 0 else 0.0
     coverage_rows.append([class_name, data["covered"], data["uncovered"], f"{percent:.2f}%"])
