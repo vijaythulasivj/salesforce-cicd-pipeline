@@ -69,13 +69,17 @@ print("Classes in destructiveChanges.xml:")
 for c in destructive_classes:
     print(f" - {c}")
 
-# === Step 5: Fetch accurate class-level code coverage using ApexCodeCoverageAggregate ===
-print("Fetching accurate code coverage for destructive classes only...")
+# === Step 5: Fetch class-level code coverage for destructive classes only ===
+print("📊 Fetching accurate code coverage for destructive classes only...")
+
 coverage_map = {}
 
-coverage_query = """
+coverage_query = f"""
     SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered
-    FROM ApexCodeCoverageAggregate
+    FROM ApexCodeCoverage
+    WHERE ApexTestClassId IN (
+        SELECT Id FROM ApexTestResult WHERE AsyncApexJobId = '{TEST_RUN_ID}'
+    )
 """
 coverage_url = f"{instance_url}/services/data/v58.0/tooling/query?q={requests.utils.quote(coverage_query)}"
 resp = requests.get(coverage_url, headers=headers)
@@ -88,18 +92,17 @@ except ValueError:
 if "records" not in json_data:
     raise RuntimeError(f"Unexpected response structure from coverage query:\n{json.dumps(json_data, indent=2)}")
 
-# Debug: print all returned class names
-print("\n📄 Classes returned by ApexCodeCoverageAggregate:")
+print("\n📄 Classes returned by ApexCodeCoverage:")
 for rec in json_data["records"]:
     apex_obj = rec.get("ApexClassOrTrigger")
     if apex_obj:
         print(f" - {apex_obj.get('Name')}")
 
-# Build coverage map only for destructive classes
+# Map coverage for destructive classes
 for rec in json_data["records"]:
     apex_obj = rec.get("ApexClassOrTrigger")
     if not apex_obj:
-        continue  # Skip nulls safely
+        continue
 
     name = apex_obj.get("Name")
     if name in destructive_classes:
