@@ -205,7 +205,7 @@ pipeline {
     }
 }
 */
-
+/*
 pipeline {
     agent any
 
@@ -304,6 +304,106 @@ pipeline {
         }
     }
 }
+*/
+pipeline {
+    agent any
+
+    environment {
+        CONSUMER_KEY = credentials('sf-consumer-key')
+        SF_USERNAME = credentials('sf-username')
+        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
+        SFDX_CMD = 'sfdx'  // assuming sfdx is in PATH, adjust if needed
+        ALIAS = "myAlias"
+        INSTANCE_URL = "https://test.salesforce.com"
+        PYTHON_EXE = '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"'
+    }
+
+    parameters {
+        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
+    }
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('salesforce-cli:latest')
+                }
+            }
+        }
+
+        stage('Authenticate Salesforce') {
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                    %SF_CMD% auth jwt grant ^
+                        --client-id %CONSUMER_KEY% ^
+                        --jwt-key-file "%JWT_KEY%" ^
+                        --username %SF_USERNAME% ^
+                        --instance-url %INSTANCE_URL% ^
+                        --alias %ALIAS% ^
+                        --set-default ^
+                        --no-prompt
+                    """
+                    bat 'echo ✅ Authenticated successfully.'
+                }
+            }
+        }
+
+        stage('🔍 Step 0: Validate destructiveChanges.xml') {
+            when { expression { !params.REDEPLOY_METADATA } }
+            steps {
+                script {
+                    echo '📁 Current working directory:'
+                    bat 'cd'
+
+                    // Zip destructive folder
+                    bat """
+                    powershell Compress-Archive -Path destructive\\* -DestinationPath destructivePackage.zip -Force
+                    """
+
+                    echo '🔧 Validating destructiveChanges.xml using sfdx mdapi deploy --checkonly...'
+                    bat """
+                    %SFDX_CMD% force:mdapi:deploy --zipfile destructivePackage.zip --targetusername %ALIAS% --wait 10 --checkonly --json > deploy-result.json
+                    """
+
+                    echo '🧪 Running Apex tests (initial run to get testRunId)...'
+                    bat """
+                    %SF_CMD% apex run test ^
+                        --tests ASKYTightestMatchServiceImplTest ^
+                        --target-org %ALIAS% ^
+                        --code-coverage ^
+                        --test-level RunSpecifiedTests ^
+                        --json > test-run.json
+                    """
+
+                    def testRunJson = readJSON file: 'test-run.json'
+                    def testRunId = testRunJson?.result?.testRunId?.trim()
+
+                    if (!testRunId) {
+                        error "❌ testRunId not found in test-run.json! Failing pipeline."
+                    }
+
+                    echo "➡️ Test Run ID: ${testRunId}"
+
+                    echo '🧪 Fetching detailed test results and generating Excel report...'
+                    withEnv([
+                        "TEST_RUN_ID=${testRunId}",
+                        "SF_ALIAS=${env.ALIAS}",
+                        "PYTHONIOENCODING=utf-8"
+                    ]) {
+                        bat "\"${env.PYTHON_EXE}\" scripts\\generate_validation_report.py"
+                    }
+
+                    echo '📂 Archiving Excel report...'
+                    archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
+
+                    echo '✅ Excel report generated and archived.'
+                }
+            }
+        }
+    }
+}
+
 
 
 
