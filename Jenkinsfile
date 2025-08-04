@@ -356,21 +356,18 @@ pipeline {
                     echo '📁 Current working directory:'
                     bat 'cd'
 
-                    // Zip destructive folder (optional for archiving, not needed for deploy)
+                    echo '📦 Zipping destructive folder into MDAPI package...'
                     bat """
                     powershell Compress-Archive -Path destructive\\* -DestinationPath destructivePackage.zip -Force
                     """
 
-                    // Unzip into a deployable directory for sf CLI
+                    echo '🔧 Validating destructiveChanges.xml using sfdx mdapi deploy (checkonly)...'
                     bat """
-                    powershell Expand-Archive -Path destructivePackage.zip -DestinationPath destructiveUnzipped -Force
-                    """
-
-                    echo '🔧 Validating destructiveChanges.xml using sf deploy metadata validate...'
-                    bat """
-                    %SF_CMD% deploy metadata validate ^
-                        --source-dir destructive ^
-                        --target-org %ALIAS% ^
+                    %SFDX_CMD% force:mdapi:deploy ^
+                        --zipfile destructivePackage.zip ^
+                        --targetusername %ALIAS% ^
+                        --wait 10 ^
+                        --checkonly ^
                         --json > deploy-result.json
                     """
 
