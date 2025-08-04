@@ -257,11 +257,12 @@ pipeline {
                     bat 'cd'
         
                     echo '🔧 Validating sf CLI and running dry-run deployment...'
-
+                    bat """
                     %SF_CMD% deploy metadata validate ^
                         --source-dir destructive ^
                         --target-org myAlias ^
                         --json
+                    """
                     /*
                     bat """
                     %SF_CMD% deploy metadata validate ^
