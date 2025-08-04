@@ -256,13 +256,18 @@ pipeline {
                     echo '📁 Current working directory:'
                     bat 'cd'
         
-                    // Removed the zip command and echo about zipping
-        
-                    echo '🔧 Validating destructiveChanges.xml using sf deploy metadata validate...'
+                    echo '📦 Zipping destructive folder into MDAPI package...'
                     bat """
-                    %SF_CMD% deploy metadata validate ^
-                        --source-dir destructive ^
-                        --target-org myAlias ^
+                    powershell Compress-Archive -Path destructive\\* -DestinationPath destructivePackage.zip -Force
+                    """
+        
+                    echo '🔧 Validating destructiveChanges.xml using sfdx force:mdapi:deploy (check only)...'
+                    bat """
+                    "C:\\Program Files\\sf\\bin\\sfdx.cmd" force:mdapi:deploy ^
+                        --zipfile destructivePackage.zip ^
+                        --targetusername myAlias ^
+                        --wait 10 ^
+                        --checkonly ^
                         --json > deploy-result.json
                     """
         
@@ -270,6 +275,7 @@ pipeline {
                     archiveArtifacts artifacts: 'deploy-result.json', allowEmptyArchive: false
         
                     echo '✅ Validation of destructiveChanges.xml complete.'
+
                     /*
                     bat """
                     %SF_CMD% deploy metadata validate ^
