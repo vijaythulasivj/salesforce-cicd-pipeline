@@ -363,7 +363,7 @@ pipeline {
 
                     echo '🔧 Validating destructiveChanges.xml using sfdx mdapi deploy --checkonly...'
                     bat """
-                    %SFDX_CMD% force:mdapi:deploy --zipfile destructivePackage.zip --targetusername %ALIAS% --wait 10 --checkonly --json > deploy-result.json
+                    %SF_CMD% deploy metadata --zipfile destructivePackage.zip --target-org myAlias --wait 10 --checkonly --json > deploy-result.json
                     """
 
                     echo '🧪 Running Apex tests (initial run to get testRunId)...'
