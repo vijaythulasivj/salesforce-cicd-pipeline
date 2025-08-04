@@ -265,6 +265,15 @@ pipeline {
                         powershell Compress-Archive -Path destructive-temp\\* -DestinationPath destructivePackage.zip -Force
                     '''
 
+                    echo '📦 Listing contents of destructivePackage.zip:'
+                    bat '''
+                        powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; `
+                        $zipPath = 'destructivePackage.zip'; `
+                        $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); `
+                        $zip.Entries | ForEach-Object { Write-Output $_.FullName }; `
+                        $zip.Dispose()"
+                    '''
+
                     echo '🔧 Validating destructiveChanges.xml using sfdx force:mdapi:deploy (check only)...'
                     bat """
                         "C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd" force:mdapi:deploy ^
