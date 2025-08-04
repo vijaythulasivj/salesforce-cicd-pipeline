@@ -369,7 +369,7 @@ pipeline {
                     echo '🔧 Validating destructiveChanges.xml using sf deploy metadata validate...'
                     bat """
                     %SF_CMD% deploy metadata validate ^
-                        --source-dir destructiveUnzipped ^
+                        --source-dir destructive ^
                         --target-org %ALIAS% ^
                         --json > deploy-result.json
                     """
