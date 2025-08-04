@@ -363,7 +363,7 @@ pipeline {
 
                     echo '🔧 Validating destructiveChanges.xml using sfdx mdapi deploy (checkonly)...'
                     bat """
-                    %SFDX_CMD% force:mdapi:deploy ^
+                    npx sfdx force:mdapi:deploy ^
                         --zipfile destructivePackage.zip ^
                         --targetusername %ALIAS% ^
                         --wait 10 ^
