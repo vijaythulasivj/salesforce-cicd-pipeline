@@ -267,11 +267,7 @@ pipeline {
 
                     echo '📦 Listing contents of destructivePackage.zip:'
                     bat '''
-                        powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; `
-                        $zipPath = 'destructivePackage.zip'; `
-                        $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); `
-                        $zip.Entries | ForEach-Object { Write-Output $_.FullName }; `
-                        $zip.Dispose()"
+                        powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
                     '''
 
                     echo '🔧 Validating destructiveChanges.xml using sfdx force:mdapi:deploy (check only)...'
