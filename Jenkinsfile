@@ -255,25 +255,29 @@ pipeline {
                 script {
                     echo '📁 Current working directory:'
                     bat 'cd'
-        
-                    echo '📦 Zipping destructive folder into MDAPI package...'
-                    bat """
-                    powershell Compress-Archive -Path destructive\\* -DestinationPath destructivePackage.zip -Force
-                    """
-        
+
+                    echo '📦 Preparing destructive deployment ZIP...'
+                    bat '''
+                        rmdir /s /q destructive-temp || exit 0
+                        mkdir destructive-temp
+                        copy destructive\\destructiveChanges.xml destructive-temp\\
+                        copy destructive\\package.xml destructive-temp\\
+                        powershell Compress-Archive -Path destructive-temp\\* -DestinationPath destructivePackage.zip -Force
+                    '''
+
                     echo '🔧 Validating destructiveChanges.xml using sfdx force:mdapi:deploy (check only)...'
                     bat """
-                    "C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd" force:mdapi:deploy ^
-                        --zipfile destructivePackage.zip ^
-                        --targetusername myAlias ^
-                        --wait 10 ^
-                        --checkonly ^
-                        --json > deploy-result.json
+                        "C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd" force:mdapi:deploy ^
+                            --zipfile destructivePackage.zip ^
+                            --targetusername %ALIAS% ^
+                            --wait 10 ^
+                            --checkonly ^
+                            --json > deploy-result.json
                     """
-        
+
                     echo '📂 Archiving deploy-result.json...'
                     archiveArtifacts artifacts: 'deploy-result.json', allowEmptyArchive: false
-        
+
                     echo '✅ Validation of destructiveChanges.xml complete.'
 
                     /*
