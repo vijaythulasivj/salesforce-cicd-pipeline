@@ -256,15 +256,12 @@ pipeline {
                     echo '📁 Current working directory:'
                     bat 'cd'
         
-                    echo '📦 Zipping destructive folder into MDAPI package...'
-                    bat """
-                    powershell Compress-Archive -Path destructive\\* -DestinationPath destructivePackage.zip -Force
-                    """
+                    // Removed the zip command and echo about zipping
         
                     echo '🔧 Validating destructiveChanges.xml using sf deploy metadata validate...'
                     bat """
-                    "C:\\Program Files\\sf\\bin\\sf.cmd" deploy metadata validate ^
-                        --zip-file destructivePackage.zip ^
+                    %SF_CMD% deploy metadata validate ^
+                        --source-dir destructive ^
                         --target-org myAlias ^
                         --json > deploy-result.json
                     """
