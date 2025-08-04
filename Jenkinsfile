@@ -312,7 +312,7 @@ pipeline {
         CONSUMER_KEY = credentials('sf-consumer-key')
         SF_USERNAME = credentials('sf-username')
         SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
-        SFDX_CMD = '"C:\\Program Files\\sfdx\\bin\\sfdx.cmd"'
+        SFDX_CMD = '"C:\\Program Files\\sf\\bin\\sfdx.cmd"'
         ALIAS = "myAlias"
         INSTANCE_URL = "https://test.salesforce.com"
         PYTHON_EXE = '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"'
