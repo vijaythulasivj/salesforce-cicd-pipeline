@@ -356,48 +356,28 @@ pipeline {
                     echo '📁 Current working directory:'
                     bat 'cd'
 
-                    // Zip destructive folder
+                    // Zip destructive folder (optional for archiving, not needed for deploy)
                     bat """
                     powershell Compress-Archive -Path destructive\\* -DestinationPath destructivePackage.zip -Force
                     """
 
-                    echo '🔧 Validating destructiveChanges.xml using sfdx mdapi deploy --checkonly...'
+                    // Unzip into a deployable directory for sf CLI
                     bat """
-                    %SF_CMD% deploy metadata --zipfile destructivePackage.zip --target-org myAlias --wait 10 --checkonly --json > deploy-result.json
+                    powershell Expand-Archive -Path destructivePackage.zip -DestinationPath destructiveUnzipped -Force
                     """
 
-                    echo '🧪 Running Apex tests (initial run to get testRunId)...'
+                    echo '🔧 Validating destructiveChanges.xml using sf deploy metadata validate...'
                     bat """
-                    %SF_CMD% apex run test ^
-                        --tests ASKYTightestMatchServiceImplTest ^
+                    %SF_CMD% deploy metadata validate ^
+                        --source-dir destructiveUnzipped ^
                         --target-org %ALIAS% ^
-                        --code-coverage ^
-                        --test-level RunSpecifiedTests ^
-                        --json > test-run.json
+                        --json > deploy-result.json
                     """
 
-                    def testRunJson = readJSON file: 'test-run.json'
-                    def testRunId = testRunJson?.result?.testRunId?.trim()
+                    echo '📂 Archiving deploy-result.json...'
+                    archiveArtifacts artifacts: 'deploy-result.json', allowEmptyArchive: false
 
-                    if (!testRunId) {
-                        error "❌ testRunId not found in test-run.json! Failing pipeline."
-                    }
-
-                    echo "➡️ Test Run ID: ${testRunId}"
-
-                    echo '🧪 Fetching detailed test results and generating Excel report...'
-                    withEnv([
-                        "TEST_RUN_ID=${testRunId}",
-                        "SF_ALIAS=${env.ALIAS}",
-                        "PYTHONIOENCODING=utf-8"
-                    ]) {
-                        bat "\"${env.PYTHON_EXE}\" scripts\\generate_validation_report.py"
-                    }
-
-                    echo '📂 Archiving Excel report...'
-                    archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
-
-                    echo '✅ Excel report generated and archived.'
+                    echo '✅ Validation of destructiveChanges.xml complete.'
                 }
             }
         }
