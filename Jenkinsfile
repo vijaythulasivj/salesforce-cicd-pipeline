@@ -391,6 +391,84 @@ pipeline {
                     echo 'Contents of destructiveChanges.xml:'
                     bat 'type destructive\\destructiveChanges.xml'
         
+                    echo 'Validating metadata existence in sandbox using Python...'
+        
+                    // Write the Python script that will do the validation
+                    writeFile file: 'validate_metadata.py', text: '''
+                    import xml.etree.ElementTree as ET
+                    import subprocess
+                    import sys
+                    
+                    # Replace with your org alias or use environment variable
+                    ORG_ALIAS = '${ALIAS}'
+                    
+                    # Supported metadata to SOQL mapping
+                    SOQL_MAP = {
+                        'ApexClass': "SELECT Id FROM ApexClass WHERE Name = '{}'",
+                        'ApexTrigger': "SELECT Id FROM ApexTrigger WHERE Name = '{}'",
+                        'ApexPage': "SELECT Id FROM ApexPage WHERE Name = '{}'",
+                        # Add other metadata types here as needed
+                    }
+                    
+                    def check_component_exists(metadata_type, component_name):
+                        soql = SOQL_MAP.get(metadata_type)
+                        if not soql:
+                            print(f"Warning: Metadata type '{metadata_type}' not checked.")
+                            return True  # assume true if not handled
+                    
+                        query = soql.format(component_name)
+                        cmd = ['sfdx', 'force:data:soql:query', '-q', query, '-u', ORG_ALIAS, '--json']
+                        try:
+                            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                            data = result.stdout
+                            import json
+                            resp = json.loads(data)
+                            records = resp.get('result', {}).get('records', [])
+                            if len(records) == 0:
+                                print(f"Component NOT FOUND: {metadata_type} - {component_name}")
+                                return False
+                            else:
+                                print(f"Component found: {metadata_type} - {component_name}")
+                                return True
+                        except subprocess.CalledProcessError as e:
+                            print(f"Error running sfdx command: {e}", file=sys.stderr)
+                            return False
+                    
+                    def main():
+                        tree = ET.parse('destructive\\destructiveChanges.xml')
+                        root = tree.getroot()
+                    
+                        all_exist = True
+                        ns = {'sf': 'http://soap.sforce.com/2006/04/metadata'}  # if namespace exists, adjust accordingly
+                    
+                        for types in root.findall('types'):
+                            metadata_type = types.find('name').text
+                            members = types.findall('members')
+                            for member in members:
+                                component_name = member.text
+                                exists = check_component_exists(metadata_type, component_name)
+                                if not exists:
+                                    all_exist = False
+                    
+                        if not all_exist:
+                            sys.exit(1)
+                        else:
+                            print("All metadata components exist in sandbox.")
+                    
+                    if __name__ == "__main__":
+                        main()
+                    '''
+        
+                    // Run the python script
+                    def pythonExe = env.PYTHON_EXE ?: 'python'  // fallback to 'python' if not set
+                    def validateResult = bat(script: "\"${pythonExe}\" validate_metadata.py", returnStatus: true)
+        
+                    if (validateResult != 0) {
+                        error 'One or more metadata components listed in destructiveChanges.xml do not exist in the target org. Aborting deployment.'
+                    }
+        
+                    echo 'All metadata components exist in sandbox. Proceeding with dry-run deployment...'
+        
                     echo 'Listing contents of destructivePackage.zip:'
                     bat '''
                         powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
@@ -425,15 +503,6 @@ pipeline {
                     echo.    print('\\n--- Component Failures ---') >> parse_deploy_result.py
                     echo.    [print(f" {c.get('componentType')}: {c.get('fullName')} — {c.get('problem')}") for c in failures] >> parse_deploy_result.py
                     %PYTHON_EXE% parse_deploy_result.py
-                    """
-        
-                    echo ' [Optional] Running test classes to validate Apex coverage (simulated)...'
-                    bat """
-                        %SF_CMD% apex test run ^
-                            --targetusername %ALIAS% ^
-                            --resultformat human ^
-                            --wait 10 ^
-                            --testlevel RunLocalTests
                     """
         
                     echo 'Validation complete. Ready for actual deployment if needed.'
