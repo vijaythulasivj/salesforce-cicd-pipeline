@@ -285,7 +285,6 @@ pipeline {
 
                     echo '✅ Validation of destructiveChanges.xml complete.'
 
-                    /*
                     bat """
                     %SF_CMD% deploy metadata validate ^
                         --source-dir force-app/main/default/classes ^
@@ -327,7 +326,6 @@ pipeline {
                     archiveArtifacts artifacts: 'test-results.xlsx', allowEmptyArchive: false
         
                     echo '✅ Excel report generated and archived.'
-                    */
                 }
             }
         }
