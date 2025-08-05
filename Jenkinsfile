@@ -394,8 +394,7 @@ pipeline {
                     echo 'Validating metadata existence in sandbox using Python...'
         
                     // Write the Python script that will do the validation
-                    writeFile file: 'validate_metadata.py', text: '''
-                    import xml.etree.ElementTree as ET
+                    writeFile file: 'validate_metadata.py', text: '''import xml.etree.ElementTree as ET
                     import subprocess
                     import sys
                     
@@ -439,11 +438,12 @@ pipeline {
                         root = tree.getroot()
                     
                         all_exist = True
-                        ns = {'sf': 'http://soap.sforce.com/2006/04/metadata'}  # if namespace exists, adjust accordingly
+                        # The XML has a namespace, so let's handle that properly:
+                        ns = {'sf': 'http://soap.sforce.com/2006/04/metadata'}
                     
-                        for types in root.findall('types'):
-                            metadata_type = types.find('name').text
-                            members = types.findall('members')
+                        for types in root.findall('sf:types', ns):
+                            metadata_type = types.find('sf:name', ns).text
+                            members = types.findall('sf:members', ns)
                             for member in members:
                                 component_name = member.text
                                 exists = check_component_exists(metadata_type, component_name)
@@ -458,7 +458,7 @@ pipeline {
                     if __name__ == "__main__":
                         main()
                     '''
-        
+
                     // Run the python script
                     def pythonExe = env.PYTHON_EXE ?: 'python'  // fallback to 'python' if not set
                     def validateResult = bat(script: "\"${pythonExe}\" validate_metadata.py", returnStatus: true)
