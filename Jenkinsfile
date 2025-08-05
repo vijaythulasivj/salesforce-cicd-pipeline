@@ -339,7 +339,7 @@ pipeline {
         CONSUMER_KEY = credentials('sf-consumer-key')
         SF_USERNAME = credentials('sf-username')
         SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'  // Full path to SFDX CLI
-        SFDX_CMD = '"C:\\Users\\tsi082\\AppData\\Roaming\npm\\sfdx.cmd"'
+        SFDX_CMD = '"C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd"'
         ALIAS = "myAlias"
         INSTANCE_URL = "https://test.salesforce.com"
         PYTHON_EXE = '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"'
@@ -473,7 +473,7 @@ pipeline {
 
                     echo 'Running dry-run validation (checkonly)...'
                     bat """
-                        %SFDX_CMD% force:mdapi:deploy ^
+                        "${env.SFDX_CMD}" force:mdapi:deploy ^
                             --zipfile destructivePackage.zip ^
                             --targetusername %ALIAS% ^
                             --wait 10 ^
