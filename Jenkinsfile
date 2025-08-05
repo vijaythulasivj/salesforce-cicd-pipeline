@@ -205,7 +205,7 @@ pipeline {
     }
 }
 */
-
+/*
 pipeline {
     agent any
 
@@ -333,6 +333,111 @@ pipeline {
         }
     }
 }
+*/
+pipeline {
+    agent any
+
+    environment {
+        CONSUMER_KEY = credentials('sf-consumer-key')
+        SF_USERNAME = credentials('sf-username')
+        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
+        ALIAS = "myAlias"
+        INSTANCE_URL = "https://test.salesforce.com"
+        PYTHON_EXE = '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"'
+    }
+
+    parameters {
+        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
+    }
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('salesforce-cli:latest')
+                }
+            }
+        }
+
+        stage('Authenticate Salesforce') {
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                    %SF_CMD% auth jwt grant ^
+                        --client-id %CONSUMER_KEY% ^
+                        --jwt-key-file "%JWT_KEY%" ^
+                        --username %SF_USERNAME% ^
+                        --instance-url %INSTANCE_URL% ^
+                        --alias %ALIAS% ^
+                        --set-default ^
+                        --no-prompt
+                    """
+                    bat 'echo ✅ Authenticated successfully.'
+                }
+            }
+        }
+
+        stage('🔍 Step 0: Validate CLI Execution') {
+            when { expression { !params.REDEPLOY_METADATA } }
+            steps {
+                script {
+                    echo '📁 Current working directory:'
+                    bat 'cd'
+
+                    echo '📦 Preparing destructive deployment ZIP...'
+                    bat '''
+                        rmdir /s /q destructive-temp || exit 0
+                        mkdir destructive-temp
+                        copy destructive\\destructiveChanges.xml destructive-temp\\
+                        copy destructive\\package.xml destructive-temp\\
+                        powershell Compress-Archive -Path destructive-temp\\* -DestinationPath destructivePackage.zip -Force
+                    '''
+
+                    echo '📂 Contents of destructiveChanges.xml:'
+                    bat 'type destructive\\destructiveChanges.xml'
+
+                    echo '📦 Listing contents of destructivePackage.zip:'
+                    bat '''
+                        powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
+                    '''
+
+                    echo '🔧 Validating destructiveChanges.xml using sfdx force:mdapi:deploy (check only)...'
+                    bat """
+                        "C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd" force:mdapi:deploy ^
+                            --zipfile destructivePackage.zip ^
+                            --targetusername %ALIAS% ^
+                            --wait 10 ^
+                            --checkonly ^
+                            --json > deploy-result.json
+                    """
+
+                    echo '📂 Archiving deploy-result.json...'
+                    archiveArtifacts artifacts: 'deploy-result.json', allowEmptyArchive: false
+
+                    echo '📊 Validated metadata components (via Python):'
+                    bat """
+                        %PYTHON_EXE% -c "import json
+                        with open('deploy-result.json') as f:
+                            data = json.load(f)
+                        details = data.get('result', {}).get('details', {})
+                        components = details.get('componentSuccesses', [])
+                        if isinstance(components, dict):
+                            components = [components]
+                        if components:
+                            for c in components:
+                                print(f'✅ {c.get(\"componentType\")}: {c.get(\"fullName\")}')
+                        else:
+                            print('⚠️ No components were validated.')
+                        "
+                    """
+
+                    echo '✅ Validation of destructiveChanges.xml complete.'
+                }
+            }
+        }
+    }
+}
+
 
 
 
