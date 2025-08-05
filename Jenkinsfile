@@ -375,14 +375,14 @@ pipeline {
             }
         }
 
-        stage('🔍 Step 0: Validate CLI Execution') {
+        stage(' Step 0: Validate CLI Execution') {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
                 script {
-                    echo '📁 Current working directory:'
+                    echo ' Current working directory:'
                     bat 'cd'
 
-                    echo '📦 Preparing destructive deployment ZIP...'
+                    echo ' Preparing destructive deployment ZIP...'
                     bat '''
                         rmdir /s /q destructive-temp || exit 0
                         mkdir destructive-temp
@@ -391,10 +391,10 @@ pipeline {
                         powershell Compress-Archive -Path destructive-temp\\* -DestinationPath destructivePackage.zip -Force
                     '''
 
-                    echo '📂 Contents of destructiveChanges.xml:'
+                    echo ' Contents of destructiveChanges.xml:'
                     bat 'type destructive\\destructiveChanges.xml'
 
-                    echo '📦 Listing contents of destructivePackage.zip:'
+                    echo ' Listing contents of destructivePackage.zip:'
                     bat '''
                         powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
                     '''
@@ -409,10 +409,10 @@ pipeline {
                             --json > deploy-result.json
                     """
 
-                    echo '📂 Archiving deploy-result.json...'
+                    echo ' Archiving deploy-result.json...'
                     archiveArtifacts artifacts: 'deploy-result.json', allowEmptyArchive: false
 
-                    echo '📊 Validated metadata components (via Python):'
+                    echo ' Validated metadata components (via Python):'
                     bat """
                     echo import json > parse_deploy_result.py
                     echo with open('deploy-result.json') as f: >> parse_deploy_result.py
@@ -423,14 +423,14 @@ pipeline {
                     echo.        components = [components] >> parse_deploy_result.py
                     echo.    if components: >> parse_deploy_result.py
                     echo.        for c in components: >> parse_deploy_result.py
-                    echo.            print(f'✅ {c.get("componentType")}: {c.get("fullName")}') >> parse_deploy_result.py
+                    echo.            print(f' {c.get("componentType")}: {c.get("fullName")}') >> parse_deploy_result.py
                     echo.    else: >> parse_deploy_result.py
-                    echo.        print('⚠️ No components were validated.') >> parse_deploy_result.py
+                    echo.        print(' No components were validated.') >> parse_deploy_result.py
                     
                     %PYTHON_EXE% parse_deploy_result.py
                     """
 
-                    echo '✅ Validation of destructiveChanges.xml complete.'
+                    echo ' Validation of destructiveChanges.xml complete.'
                 }
             }
         }
