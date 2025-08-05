@@ -375,14 +375,11 @@ pipeline {
             }
         }
 
-        stage(' Step 0: Validate CLI Execution') {
+        stage('Validate Destructive Deployment') {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
                 script {
-                    echo ' Current working directory:'
-                    bat 'cd'
-
-                    echo ' Preparing destructive deployment ZIP...'
+                    echo '📦 Preparing destructive deployment ZIP...'
                     bat '''
                         rmdir /s /q destructive-temp || exit 0
                         mkdir destructive-temp
@@ -390,47 +387,56 @@ pipeline {
                         copy destructive\\package.xml destructive-temp\\
                         powershell Compress-Archive -Path destructive-temp\\* -DestinationPath destructivePackage.zip -Force
                     '''
-
-                    echo ' Contents of destructiveChanges.xml:'
+        
+                    echo '📄 Contents of destructiveChanges.xml:'
                     bat 'type destructive\\destructiveChanges.xml'
-
-                    echo ' Listing contents of destructivePackage.zip:'
+        
+                    echo '🧾 Listing contents of destructivePackage.zip:'
                     bat '''
                         powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
                     '''
-
-                    echo '🔧 Validating destructiveChanges.xml using sfdx force:mdapi:deploy (check only)...'
+        
+                    echo '🔍 Running dry-run validation (checkonly)...'
                     bat """
-                        "C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd" force:mdapi:deploy ^
+                        %SF_CMD% force:mdapi:deploy ^
                             --zipfile destructivePackage.zip ^
                             --targetusername %ALIAS% ^
                             --wait 10 ^
                             --checkonly ^
                             --json > deploy-result.json
                     """
-
-                    echo ' Archiving deploy-result.json...'
+        
+                    echo '📁 Archiving deployment result...'
                     archiveArtifacts artifacts: 'deploy-result.json', allowEmptyArchive: false
-
-                    echo ' Validated metadata components (via Python):'
+        
+                    echo '📊 Parsing result (component successes & failures)...'
                     bat """
                     echo import json > parse_deploy_result.py
                     echo with open('deploy-result.json') as f: >> parse_deploy_result.py
                     echo.    data = json.load(f) >> parse_deploy_result.py
                     echo.    details = data.get('result', {}).get('details', {}) >> parse_deploy_result.py
-                    echo.    components = details.get('componentSuccesses', []) >> parse_deploy_result.py
-                    echo.    if isinstance(components, dict): >> parse_deploy_result.py
-                    echo.        components = [components] >> parse_deploy_result.py
-                    echo.    if components: >> parse_deploy_result.py
-                    echo.        for c in components: >> parse_deploy_result.py
-                    echo.            print(f' {c.get("componentType")}: {c.get("fullName")}') >> parse_deploy_result.py
-                    echo.    else: >> parse_deploy_result.py
-                    echo.        print(' No components were validated.') >> parse_deploy_result.py
-                    
+                    echo.    successes = details.get('componentSuccesses', []) >> parse_deploy_result.py
+                    echo.    failures = details.get('componentFailures', []) >> parse_deploy_result.py
+                    echo.    if isinstance(successes, dict): successes = [successes] >> parse_deploy_result.py
+                    echo.    if isinstance(failures, dict): failures = [failures] >> parse_deploy_result.py
+                    echo.    print('--- Component Successes ---') >> parse_deploy_result.py
+                    echo.    [print(f"✓ {c.get('componentType')}: {c.get('fullName')}") for c in successes] >> parse_deploy_result.py
+                    echo.    if not successes: print('⚠️ No components were validated.') >> parse_deploy_result.py
+                    echo.    print('\\n--- Component Failures ---') >> parse_deploy_result.py
+                    echo.    [print(f"❌ {c.get('componentType')}: {c.get('fullName')} — {c.get('problem')}") for c in failures] >> parse_deploy_result.py
                     %PYTHON_EXE% parse_deploy_result.py
                     """
-
-                    echo ' Validation of destructiveChanges.xml complete.'
+        
+                    echo '🧪 [Optional] Running test classes to validate Apex coverage (simulated)...'
+                    bat """
+                        %SF_CMD% apex test run ^
+                            --targetusername %ALIAS% ^
+                            --resultformat human ^
+                            --wait 10 ^
+                            --testlevel RunLocalTests
+                    """
+        
+                    echo 'Validation complete. Ready for actual deployment if needed.'
                 }
             }
         }
