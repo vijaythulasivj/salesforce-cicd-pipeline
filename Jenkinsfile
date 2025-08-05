@@ -398,7 +398,7 @@ pipeline {
         
                     echo '🔍 Running dry-run validation (checkonly)...'
                     bat """
-                        %SF_CMD% force:mdapi:deploy ^
+                        "C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd" force:mdapi:deploy ^
                             --zipfile destructivePackage.zip ^
                             --targetusername %ALIAS% ^
                             --wait 10 ^
