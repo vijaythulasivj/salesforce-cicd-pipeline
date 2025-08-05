@@ -502,6 +502,81 @@ pipeline {
                     """
 
                     echo 'Validation complete. Ready for actual deployment if needed.'
+
+                    echo 'Checking for orphaned references before deletion...'
+
+                    def orphanRefScript = '''
+                    import xml.etree.ElementTree as ET
+                    import subprocess
+                    import sys
+                    import json
+                    import os
+                    
+                    ORG_ALIAS = os.environ.get('ALIAS')
+                    SFDX_CLI = os.environ.get('SF_CMD', 'sfdx').strip('"')
+                    
+                    def check_orphan_references(metadata_type, component_name):
+                        # Get component Id
+                        id_query = f"SELECT Id FROM {metadata_type} WHERE Name = '{component_name}'"
+                        id_cmd = [SFDX_CLI, 'force:data:soql:query', '-q', id_query, '-u', ORG_ALIAS, '--json']
+                        try:
+                            id_result = subprocess.run(id_cmd, capture_output=True, text=True, check=True)
+                            id_data = json.loads(id_result.stdout)
+                            records = id_data.get("result", {}).get("records", [])
+                            if not records:
+                                return True
+                            comp_id = records[0]['Id']
+                    
+                            # Query MetadataComponentDependency for references
+                            ref_query = f"SELECT RefMetadataComponent.Name, RefMetadataComponent.Type FROM MetadataComponentDependency WHERE RefMetadataComponentId = '{comp_id}'"
+                            ref_cmd = [SFDX_CLI, 'force:data:soql:query', '-q', ref_query, '-u', ORG_ALIAS, '--json']
+                            ref_result = subprocess.run(ref_cmd, capture_output=True, text=True, check=True)
+                            ref_data = json.loads(ref_result.stdout)
+                            references = ref_data.get("result", {}).get("records", [])
+                            if references:
+                                print(f"Component {metadata_type} - {component_name} is referenced by:")
+                                for ref in references:
+                                    print(f"  {ref['RefMetadataComponent']['Type']} - {ref['RefMetadataComponent']['Name']}")
+                                return False
+                            return True
+                        except subprocess.CalledProcessError as e:
+                            print("Error querying sfdx:", e)
+                            return False
+                    
+                    def main():
+                        tree = ET.parse("destructive/destructiveChanges.xml")
+                        root = tree.getroot()
+                        ns = {"sf": "http://soap.sforce.com/2006/04/metadata"}
+                    
+                        all_clear = True
+                        for types in root.findall("sf:types", ns):
+                            metadata_type = types.find("sf:name", ns).text
+                            for member in types.findall("sf:members", ns):
+                                component = member.text
+                                if not check_orphan_references(metadata_type, component):
+                                    all_clear = False
+                    
+                        if not all_clear:
+                            print("One or more components are referenced by other metadata. Aborting destructive deployment.")
+                            sys.exit(1)
+                        else:
+                            print("No orphaned references found. Safe to proceed with destructive deployment.")
+                    
+                    if __name__ == "__main__":
+                        main()
+                    '''.stripIndent()
+                    
+                    writeFile file: 'check_orphan_refs.py', text: orphanRefScript
+                    
+                    echo 'Running orphan references validation...'
+                    withEnv(["SF_CMD=${env.SF_CMD}", "ALIAS=${env.ALIAS}"]) {
+                        def orphanCheckResult = bat(script: "\"${env.PYTHON_EXE}\" check_orphan_refs.py", returnStatus: true)
+                        if (orphanCheckResult != 0) {
+                            error 'Orphaned references detected. Aborting pipeline.'
+                        }
+                    }
+                    
+                    echo 'Orphan references check passed.'
                 }
             }
         }
