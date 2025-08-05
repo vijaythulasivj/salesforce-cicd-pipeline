@@ -414,19 +414,20 @@ pipeline {
 
                     echo '📊 Validated metadata components (via Python):'
                     bat """
-                        %PYTHON_EXE% -c "import json
-                        with open('deploy-result.json') as f:
-                            data = json.load(f)
-                        details = data.get('result', {}).get('details', {})
-                        components = details.get('componentSuccesses', [])
-                        if isinstance(components, dict):
-                            components = [components]
-                        if components:
-                            for c in components:
-                                print(f'✅ {c.get(\"componentType\")}: {c.get(\"fullName\")}')
-                        else:
-                            print('⚠️ No components were validated.')
-                        "
+                    echo import json > parse_deploy_result.py
+                    echo with open('deploy-result.json') as f: >> parse_deploy_result.py
+                    echo.    data = json.load(f) >> parse_deploy_result.py
+                    echo.    details = data.get('result', {}).get('details', {}) >> parse_deploy_result.py
+                    echo.    components = details.get('componentSuccesses', []) >> parse_deploy_result.py
+                    echo.    if isinstance(components, dict): >> parse_deploy_result.py
+                    echo.        components = [components] >> parse_deploy_result.py
+                    echo.    if components: >> parse_deploy_result.py
+                    echo.        for c in components: >> parse_deploy_result.py
+                    echo.            print(f'✅ {c.get("componentType")}: {c.get("fullName")}') >> parse_deploy_result.py
+                    echo.    else: >> parse_deploy_result.py
+                    echo.        print('⚠️ No components were validated.') >> parse_deploy_result.py
+                    
+                    %PYTHON_EXE% parse_deploy_result.py
                     """
 
                     echo '✅ Validation of destructiveChanges.xml complete.'
