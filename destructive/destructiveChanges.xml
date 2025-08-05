@@ -2,7 +2,6 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
 	<types>
 		<name>ApexClass</name>
-		<members>NonExistentClassXYZ</members>
 		<members>AssetController</members>
 		<members>AssetController_Test</members>
 		<members>BB_CaseProcessBuilder_Test</members>
@@ -57,12 +56,9 @@
 		<members>Transitorio_ContractTriggerHandler</members>
 		<members>Transitorio_ContractTriggerHandler_Test</members>
 		<members>Trigger_PaymentMethod_Test</members>
-		<members>WS_PGS_SEND_PRINT_Test</members>
 	</types>
 	<types>
 		<name>ApexPage</name>
-		<members>NewCRM_WebContactDetail</members>
-		<members>NEPegasusSendPrint</members>
 		<members>NeTextualDC</members> 
 		<members>NeImportDC</members> 
 		<members>DocumentComponentRelatedList</members> 
