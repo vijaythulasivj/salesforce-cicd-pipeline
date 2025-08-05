@@ -398,30 +398,26 @@ pipeline {
                     import subprocess
                     import sys
                     
-                    # Replace with your org alias or use environment variable
                     ORG_ALIAS = '${ALIAS}'
                     
-                    # Supported metadata to SOQL mapping
                     SOQL_MAP = {
                         'ApexClass': "SELECT Id FROM ApexClass WHERE Name = '{}'",
                         'ApexTrigger': "SELECT Id FROM ApexTrigger WHERE Name = '{}'",
                         'ApexPage': "SELECT Id FROM ApexPage WHERE Name = '{}'",
-                        # Add other metadata types here as needed
                     }
                     
                     def check_component_exists(metadata_type, component_name):
                         soql = SOQL_MAP.get(metadata_type)
                         if not soql:
                             print(f"Warning: Metadata type '{metadata_type}' not checked.")
-                            return True  # assume true if not handled
+                            return True
                     
                         query = soql.format(component_name)
                         cmd = ['sfdx', 'force:data:soql:query', '-q', query, '-u', ORG_ALIAS, '--json']
                         try:
                             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-                            data = result.stdout
                             import json
-                            resp = json.loads(data)
+                            resp = json.loads(result.stdout)
                             records = resp.get('result', {}).get('records', [])
                             if len(records) == 0:
                                 print(f"Component NOT FOUND: {metadata_type} - {component_name}")
@@ -437,17 +433,14 @@ pipeline {
                         tree = ET.parse('destructive\\destructiveChanges.xml')
                         root = tree.getroot()
                     
-                        all_exist = True
-                        # The XML has a namespace, so let's handle that properly:
                         ns = {'sf': 'http://soap.sforce.com/2006/04/metadata'}
                     
+                        all_exist = True
                         for types in root.findall('sf:types', ns):
                             metadata_type = types.find('sf:name', ns).text
-                            members = types.findall('sf:members', ns)
-                            for member in members:
+                            for member in types.findall('sf:members', ns):
                                 component_name = member.text
-                                exists = check_component_exists(metadata_type, component_name)
-                                if not exists:
+                                if not check_component_exists(metadata_type, component_name):
                                     all_exist = False
                     
                         if not all_exist:
