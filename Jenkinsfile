@@ -514,7 +514,7 @@ pipeline {
                     import os
                     
                     ORG_ALIAS = os.environ.get('ALIAS')
-                    SFDX_CLI = os.environ.get('SF_CMD', 'sfdx').strip('"')
+                    SFDX_CLI = os.environ.get('SFDX_CMD', 'sfdx').strip('"')
                     
                     def check_orphan_references(metadata_type, component_name):
                         # Get component Id
