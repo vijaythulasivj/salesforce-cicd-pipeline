@@ -570,7 +570,7 @@ pipeline {
                     writeFile file: 'check_orphan_refs.py', text: orphanRefScript
                     
                     echo 'Running orphan references validation...'
-                    withEnv(["SF_CMD=${env.SF_CMD}", "ALIAS=${env.ALIAS}"]) {
+                    withEnv(["SFDX_CMD=${env.SFDX_CMD}", "ALIAS=${env.ALIAS}"]) {
                         def orphanCheckResult = bat(script: "\"${env.PYTHON_EXE}\" check_orphan_refs.py", returnStatus: true)
                         if (orphanCheckResult != 0) {
                             error 'Orphaned references detected. Aborting pipeline.'
