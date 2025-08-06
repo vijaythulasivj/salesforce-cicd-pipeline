@@ -517,9 +517,9 @@ pipeline {
                     SFDX_CLI = os.environ.get('SFDX_CMD', 'sfdx').strip('"')
                     
                     def check_orphan_references(metadata_type, component_name):
-                        # Get component Id
+                        # Get component Id using Tooling API
                         id_query = f"SELECT Id FROM {metadata_type} WHERE Name = '{component_name}'"
-                        id_cmd = [SFDX_CLI, 'force:data:soql:query', '-q', id_query, '-u', ORG_ALIAS, '--json']
+                        id_cmd = [SFDX_CLI, 'force:data:soql:query', '-q', id_query, '-u', ORG_ALIAS, '--usetoolingapi', '--json']
                         try:
                             id_result = subprocess.run(id_cmd, capture_output=True, text=True, check=True)
                             id_data = json.loads(id_result.stdout)
@@ -528,9 +528,9 @@ pipeline {
                                 return True
                             comp_id = records[0]['Id']
                     
-                            # Query MetadataComponentDependency for references
+                            # Query MetadataComponentDependency for references using Tooling API
                             ref_query = f"SELECT RefMetadataComponent.Name, RefMetadataComponent.Type FROM MetadataComponentDependency WHERE RefMetadataComponentId = '{comp_id}'"
-                            ref_cmd = [SFDX_CLI, 'force:data:soql:query', '-q', ref_query, '-u', ORG_ALIAS, '--json']
+                            ref_cmd = [SFDX_CLI, 'force:data:soql:query', '-q', ref_query, '-u', ORG_ALIAS, '--usetoolingapi', '--json']
                             ref_result = subprocess.run(ref_cmd, capture_output=True, text=True, check=True)
                             ref_data = json.loads(ref_result.stdout)
                             references = ref_data.get("result", {}).get("records", [])
