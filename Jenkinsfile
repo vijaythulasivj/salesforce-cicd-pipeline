@@ -563,7 +563,7 @@ pipeline {
                     
                     def check_references(component_id, metadata_type, name):
                         query = f"""
-                            SELECT RefMetadataComponent.Name, RefMetadataComponent.Type
+                            SELECT MetadataComponent.Name, MetadataComponent.Type
                             FROM MetadataComponentDependency
                             WHERE RefMetadataComponentId = '{component_id}'
                         """.strip()
@@ -576,8 +576,8 @@ pipeline {
                         if references:
                             print(f"[ERROR] {metadata_type} - {name} is referenced by:")
                             for ref in references:
-                                ref_name = ref["RefMetadataComponent"]["Name"]
-                                ref_type = ref["RefMetadataComponent"]["Type"]
+                                ref_name = ref["MetadataComponent"]["Name"]
+                                ref_type = ref["MetadataComponent"]["Type"]
                                 print(f"  - {ref_type}: {ref_name}")
                             return True
                     
@@ -621,6 +621,7 @@ pipeline {
                     }
                     
                     echo 'Orphan references check passed.'
+
 
                 }
             }
