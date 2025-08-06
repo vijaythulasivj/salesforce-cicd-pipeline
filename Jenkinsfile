@@ -516,52 +516,94 @@ pipeline {
                     ORG_ALIAS = os.environ.get('ALIAS')
                     SFDX_CLI = os.environ.get('SFDX_CMD', 'sfdx').strip('"')
                     
-                    def check_orphan_references(metadata_type, component_name):
-                        # Get component Id using Tooling API
-                        id_query = f"SELECT Id FROM {metadata_type} WHERE Name = '{component_name}'"
-                        id_cmd = [SFDX_CLI, 'force:data:soql:query', '-q', id_query, '-u', ORG_ALIAS, '--usetoolingapi', '--json']
-                        try:
-                            id_result = subprocess.run(id_cmd, capture_output=True, text=True, check=True)
-                            id_data = json.loads(id_result.stdout)
-                            records = id_data.get("result", {}).get("records", [])
-                            if not records:
-                                return True
-                            comp_id = records[0]['Id']
+                    # Tooling API mapping for valid metadata types
+                    TOOLING_TYPES = {
+                        'ApexClass': 'ApexClass',
+                        'ApexTrigger': 'ApexTrigger',
+                        'ApexPage': 'ApexPage',
+                        // Add more supported types as needed
+                    }
                     
-                            # Query MetadataComponentDependency for references using Tooling API
-                            ref_query = f"SELECT RefMetadataComponent.Name, RefMetadataComponent.Type FROM MetadataComponentDependency WHERE RefMetadataComponentId = '{comp_id}'"
-                            ref_cmd = [SFDX_CLI, 'force:data:soql:query', '-q', ref_query, '-u', ORG_ALIAS, '--usetoolingapi', '--json']
-                            ref_result = subprocess.run(ref_cmd, capture_output=True, text=True, check=True)
-                            ref_data = json.loads(ref_result.stdout)
-                            references = ref_data.get("result", {}).get("records", [])
-                            if references:
-                                print(f"Component {metadata_type} - {component_name} is referenced by:")
-                                for ref in references:
-                                    print(f"  {ref['RefMetadataComponent']['Type']} - {ref['RefMetadataComponent']['Name']}")
-                                return False
-                            return True
+                    def run_sfdx_query(query, tooling=True):
+                        cmd = [
+                            SFDX_CLI,
+                            'force:data:soql:query',
+                            '-q', query,
+                            '-u', ORG_ALIAS,
+                            '--json'
+                        ]
+                        if tooling:
+                            cmd.append('--usetoolingapi')
+                        try:
+                            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                            return json.loads(result.stdout)
                         except subprocess.CalledProcessError as e:
-                            print("Error querying sfdx:", e)
+                            print(f"[WARN] Failed SOQL query: {query}")
+                            print(f"[ERROR] {e.stderr.strip()}")
+                            return None
+                    
+                    def get_component_id(metadata_type, name):
+                        tooling_object = TOOLING_TYPES.get(metadata_type)
+                        if not tooling_object:
+                            print(f"[SKIP] Metadata type '{metadata_type}' is not supported for orphan check.")
+                            return None
+                    
+                        query = f"SELECT Id FROM {tooling_object} WHERE Name = '{name}'"
+                        result = run_sfdx_query(query)
+                        if not result:
+                            return None
+                    
+                        records = result.get("result", {}).get("records", [])
+                        if not records:
+                            print(f"[INFO] Component {metadata_type} - {name} not found. Skipping.")
+                            return None
+                    
+                        return records[0]['Id']
+                    
+                    def check_references(component_id, metadata_type, name):
+                        query = f"""
+                            SELECT RefMetadataComponent.Name, RefMetadataComponent.Type
+                            FROM MetadataComponentDependency
+                            WHERE RefMetadataComponentId = '{component_id}'
+                        """.strip()
+                        result = run_sfdx_query(query)
+                        if not result:
+                            print(f"[WARN] Unable to fetch references for {metadata_type} - {name}")
                             return False
+                    
+                        references = result.get("result", {}).get("records", [])
+                        if references:
+                            print(f"[ERROR] {metadata_type} - {name} is referenced by:")
+                            for ref in references:
+                                ref_name = ref["RefMetadataComponent"]["Name"]
+                                ref_type = ref["RefMetadataComponent"]["Type"]
+                                print(f"  - {ref_type}: {ref_name}")
+                            return True
+                    
+                        print(f"[OK] {metadata_type} - {name} has no references.")
+                        return False
                     
                     def main():
                         tree = ET.parse("destructive/destructiveChanges.xml")
                         root = tree.getroot()
                         ns = {"sf": "http://soap.sforce.com/2006/04/metadata"}
                     
-                        all_clear = True
+                        has_references = False
+                    
                         for types in root.findall("sf:types", ns):
                             metadata_type = types.find("sf:name", ns).text
                             for member in types.findall("sf:members", ns):
                                 component = member.text
-                                if not check_orphan_references(metadata_type, component):
-                                    all_clear = False
+                                component_id = get_component_id(metadata_type, component)
+                                if component_id:
+                                    if check_references(component_id, metadata_type, component):
+                                        has_references = True
                     
-                        if not all_clear:
-                            print("One or more components are referenced by other metadata. Aborting destructive deployment.")
+                        if has_references:
+                            print("[ABORT] One or more components are still referenced. Cannot delete.")
                             sys.exit(1)
                         else:
-                            print("No orphaned references found. Safe to proceed with destructive deployment.")
+                            print("[SUCCESS] No orphaned references found. Safe to proceed.")
                     
                     if __name__ == "__main__":
                         main()
@@ -578,6 +620,7 @@ pipeline {
                     }
                     
                     echo 'Orphan references check passed.'
+
                 }
             }
         }
