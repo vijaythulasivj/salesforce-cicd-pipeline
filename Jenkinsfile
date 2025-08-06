@@ -521,7 +521,7 @@ pipeline {
                         'ApexClass': 'ApexClass',
                         'ApexTrigger': 'ApexTrigger',
                         'ApexPage': 'ApexPage',
-                        // Add more supported types as needed
+                        # Add more supported types as needed
                     }
                     
                     def run_sfdx_query(query, tooling=True):
