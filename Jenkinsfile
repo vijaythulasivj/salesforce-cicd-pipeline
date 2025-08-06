@@ -394,30 +394,30 @@ pipeline {
                         powershell -Command "Compress-Archive -Path destructive-temp\\* -DestinationPath destructivePackage.zip -Force"
                     '''
         
-                    echo '✅ Contents of destructiveChanges.xml:'
+                    echo ' Contents of destructiveChanges.xml:'
                     bat 'type destructive\\destructiveChanges.xml'
         
-                    echo '✅ Validating metadata existence in sandbox using Python...'
+                    echo ' Validating metadata existence in sandbox using Python...'
         
                     def validateScript = '''<your existing Python validation script — no changes needed>'''.stripIndent()
                     writeFile file: 'validate_metadata.py', text: validateScript
         
-                    echo '▶ Running Python validation script...'
+                    echo ' Running Python validation script...'
                     withEnv(["SF_CMD=${env.SF_CMD}", "ALIAS=${env.ALIAS}"]) {
                         def validateResult = bat(script: "\"${env.PYTHON_EXE}\" validate_metadata.py", returnStatus: true)
                         if (validateResult != 0) {
-                            error '❌ One or more metadata components listed in destructiveChanges.xml do not exist in the target org. Aborting deployment.'
+                            error ' One or more metadata components listed in destructiveChanges.xml do not exist in the target org. Aborting deployment.'
                         }
                     }
         
-                    echo '✅ All metadata components exist in sandbox. Proceeding with dry-run deployment...'
+                    echo ' All metadata components exist in sandbox. Proceeding with dry-run deployment...'
         
-                    echo '📦 Listing contents of destructivePackage.zip:'
+                    echo ' Listing contents of destructivePackage.zip:'
                     bat '''
                         powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
                     '''
         
-                    echo '🚀 Running dry-run validation (checkonly)...'
+                    echo ' Running dry-run validation (checkonly)...'
                     bat """
                         "${env.SFDX_CMD}" force:mdapi:deploy ^
                             --zipfile destructivePackage.zip ^
