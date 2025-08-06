@@ -380,7 +380,7 @@ pipeline {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
                 script {
-                    /*
+                    
                     echo 'Preparing destructive deployment ZIP...'
                     bat '''
                         rmdir /s /q destructive-temp || exit 0
@@ -504,7 +504,7 @@ pipeline {
                     """
 
                     echo 'Validation complete. Ready for actual deployment if needed.'
-                    */
+                
                     echo 'Checking for orphaned references before deletion...'
 
                     def orphanRefScript = '''
