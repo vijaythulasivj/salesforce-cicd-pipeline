@@ -475,7 +475,21 @@ pipeline {
             bat '''
                 powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
             '''
-
+            
+            // ✅ INSERT DEBUG STEP HERE
+            echo 'Reading destructiveChanges.xml from ZIP for verification...'
+            bat '''
+                powershell -command "
+                    Add-Type -AssemblyName System.IO.Compression.FileSystem;
+                    $zipPath = 'destructivePackage.zip';
+                    $entry = [System.IO.Compression.ZipFile]::OpenRead($zipPath).Entries | Where-Object { $_.FullName -eq 'destructiveChanges.xml' };
+                    $reader = New-Object IO.StreamReader($entry.Open());
+                    $content = $reader.ReadToEnd();
+                    $reader.Close();
+                    Write-Output $content
+                "
+            '''
+            
             echo 'Running dry-run validation (checkonly)...'
             bat """
                 "${env.SFDX_CMD}" force:mdapi:deploy ^
