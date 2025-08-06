@@ -471,10 +471,11 @@ pipeline {
 
             echo 'All metadata components exist in sandbox. Proceeding with dry-run deployment...'
 
-            echo 'Listing contents of destructivePackage.zip:'
+            echo 'Reading destructiveChanges.xml from ZIP for verification...'
             bat '''
-                powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
+            powershell -NoProfile -Command "Add-Type -AssemblyName 'System.IO.Compression.FileSystem'; $zip = [System.IO.Compression.ZipFile]::OpenRead('destructivePackage.zip'); $entry = $zip.Entries | Where-Object { $_.FullName -eq 'destructiveChanges.xml' }; if ($entry -ne $null) { $reader = New-Object IO.StreamReader($entry.Open()); $content = $reader.ReadToEnd(); $reader.Close(); Write-Output $content } else { Write-Output 'destructiveChanges.xml not found in ZIP' }; $zip.Dispose()"
             '''
+
             
             // ✅ INSERT DEBUG STEP HERE
             echo 'Reading destructiveChanges.xml from ZIP for verification...'
