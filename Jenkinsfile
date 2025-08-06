@@ -562,27 +562,27 @@ pipeline {
                         return records[0]['Id']
                     
                     def check_references(component_id, metadata_type, name):
-                        query = f"""
-                            SELECT MetadataComponent.Name, MetadataComponent.Type
-                            FROM MetadataComponentDependency
-                            WHERE RefMetadataComponentId = '{component_id}'
-                        """.strip()
-                        result = run_sfdx_query(query)
-                        if not result:
-                            print(f"[WARN] Unable to fetch references for {metadata_type} - {name}")
-                            return False
-                    
-                        references = result.get("result", {}).get("records", [])
-                        if references:
-                            print(f"[ERROR] {metadata_type} - {name} is referenced by:")
-                            for ref in references:
-                                ref_name = ref["MetadataComponent"]["Name"]
-                                ref_type = ref["MetadataComponent"]["Type"]
-                                print(f"  - {ref_type}: {ref_name}")
-                            return True
-                    
-                        print(f"[OK] {metadata_type} - {name} has no references.")
+                    query = (
+                        f"SELECT MetadataComponent.Name, MetadataComponent.Type "
+                        f"FROM MetadataComponentDependency "
+                        f"WHERE RefMetadataComponentId = '{component_id}'"
+                    )
+                    result = run_sfdx_query(query)
+                    if not result:
+                        print(f"[WARN] Unable to fetch references for {metadata_type} - {name}")
                         return False
+                
+                    references = result.get("result", {}).get("records", [])
+                    if references:
+                        print(f"[ERROR] {metadata_type} - {name} is referenced by:")
+                        for ref in references:
+                            ref_name = ref["MetadataComponent"]["Name"]
+                            ref_type = ref["MetadataComponent"]["Type"]
+                            print(f"  - {ref_type}: {ref_name}")
+                        return True
+                
+                    print(f"[OK] {metadata_type} - {name} has no references.")
+                    return False
                     
                     def main():
                         tree = ET.parse("destructive/destructiveChanges.xml")
@@ -621,7 +621,6 @@ pipeline {
                     }
                     
                     echo 'Orphan references check passed.'
-
 
                 }
             }
