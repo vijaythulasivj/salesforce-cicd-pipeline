@@ -377,55 +377,114 @@ pipeline {
         }
 
         stage('Validate Destructive Deployment') {
-            when { expression { !params.REDEPLOY_METADATA } }
-            steps {
-                script {
-        
-                    echo 'Preparing destructive deployment ZIP...'
-        
-                    bat '''
-                        rmdir /s /q destructive-temp || exit 0
-                        mkdir destructive-temp
-        
-                        copy destructive\\destructiveChanges.xml destructive-temp\\
-                        copy destructive\\package.xml destructive-temp\\
-        
-                        del destructivePackage.zip >nul 2>&1
-                        powershell -Command "Compress-Archive -Path destructive-temp\\* -DestinationPath destructivePackage.zip -Force"
-                    '''
-        
-                    echo ' Contents of destructiveChanges.xml:'
-                    bat 'type destructive\\destructiveChanges.xml'
-        
-                    echo ' Validating metadata existence in sandbox using Python...'
-        
-                    def validateScript = '''<your existing Python validation script — no changes needed>'''.stripIndent()
-                    writeFile file: 'validate_metadata.py', text: validateScript
-        
-                    echo ' Running Python validation script...'
-                    withEnv(["SF_CMD=${env.SF_CMD}", "ALIAS=${env.ALIAS}"]) {
-                        def validateResult = bat(script: "\"${env.PYTHON_EXE}\" validate_metadata.py", returnStatus: true)
-                        if (validateResult != 0) {
-                            error ' One or more metadata components listed in destructiveChanges.xml do not exist in the target org. Aborting deployment.'
-                        }
-                    }
-        
-                    echo ' All metadata components exist in sandbox. Proceeding with dry-run deployment...'
-        
-                    echo ' Listing contents of destructivePackage.zip:'
-                    bat '''
-                        powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
-                    '''
-        
-                    echo ' Running dry-run validation (checkonly)...'
-                    bat """
-                        "${env.SFDX_CMD}" force:mdapi:deploy ^
-                            --zipfile destructivePackage.zip ^
-                            --targetusername %ALIAS% ^
-                            --wait 10 ^
-                            --checkonly ^
-                            --json > deploy-result.json
-                    """
+    when { expression { !params.REDEPLOY_METADATA } }
+    steps {
+        script {
+
+            echo 'Preparing destructive deployment ZIP...'
+
+            bat '''
+                rmdir /s /q destructive-temp || exit 0
+                mkdir destructive-temp
+
+                copy destructive\\destructiveChanges.xml destructive-temp\\
+                copy destructive\\package.xml destructive-temp\\
+
+                del destructivePackage.zip >nul 2>&1
+                powershell -Command "Compress-Archive -Path destructive-temp\\* -DestinationPath destructivePackage.zip -Force"
+            '''
+
+            echo 'Contents of destructiveChanges.xml:'
+            bat 'type destructive\\destructiveChanges.xml'
+
+            echo 'Validating metadata existence in sandbox using Python...'
+
+            def validateScript = '''
+            import xml.etree.ElementTree as ET
+            import subprocess
+            import sys
+            import json
+            import os
+            
+            ORG_ALIAS = os.environ.get('ALIAS')
+            SFDX_CLI = os.environ.get('SF_CMD', 'sfdx').strip('"')
+            
+            SOQL_MAP = {
+                'ApexClass': "SELECT Id FROM ApexClass WHERE Name = '{}'",
+                'ApexTrigger': "SELECT Id FROM ApexTrigger WHERE Name = '{}'",
+                'ApexPage': "SELECT Id FROM ApexPage WHERE Name = '{}'"
+            }
+            
+            def check_component_exists(metadata_type, component_name):
+                soql = SOQL_MAP.get(metadata_type)
+                if not soql:
+                    print(f"Warning: Metadata type '{metadata_type}' not checked.")
+                    return True
+            
+                query = soql.format(component_name)
+                cmd = [SFDX_CLI, 'force:data:soql:query', '-q', query, '-u', ORG_ALIAS, '--json']
+                try:
+                    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                    data = json.loads(result.stdout)
+                    records = data.get("result", {}).get("records", [])
+                    if not records:
+                        print(f"Component NOT FOUND: {metadata_type} - {component_name}")
+                        return False
+                    else:
+                        print(f"Component found: {metadata_type} - {component_name}")
+                        return True
+                except subprocess.CalledProcessError as e:
+                    print("Error running sfdx:", e)
+                    return False
+            
+            def main():
+                tree = ET.parse("destructive/destructiveChanges.xml")
+                root = tree.getroot()
+                ns = {"sf": "http://soap.sforce.com/2006/04/metadata"}
+            
+                all_exist = True
+                for types in root.findall("sf:types", ns):
+                    metadata_type = types.find("sf:name", ns).text
+                    for member in types.findall("sf:members", ns):
+                        component = member.text
+                        if not check_component_exists(metadata_type, component):
+                            all_exist = False
+            
+                if not all_exist:
+                    sys.exit(1)
+                else:
+                    print("All metadata components exist.")
+            
+            if __name__ == "__main__":
+                main()
+            '''.stripIndent()
+
+            writeFile file: 'validate_metadata.py', text: validateScript
+
+            echo 'Running Python validation script...'
+            withEnv(["SF_CMD=${env.SF_CMD}", "ALIAS=${env.ALIAS}"]) {
+                def validateResult = bat(script: "\"${env.PYTHON_EXE}\" validate_metadata.py", returnStatus: true)
+                if (validateResult != 0) {
+                    error 'One or more metadata components listed in destructiveChanges.xml do not exist in the target org. Aborting deployment.'
+                }
+            }
+
+            echo 'All metadata components exist in sandbox. Proceeding with dry-run deployment...'
+
+            echo 'Listing contents of destructivePackage.zip:'
+            bat '''
+                powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
+            '''
+
+            echo 'Running dry-run validation (checkonly)...'
+            bat """
+                "${env.SFDX_CMD}" force:mdapi:deploy ^
+                    --zipfile destructivePackage.zip ^
+                    --targetusername %ALIAS% ^
+                    --wait 10 ^
+                    --checkonly ^
+                    --json > deploy-result.json
+            """
                     /*
                     echo 'Archiving deployment result...'
                     archiveArtifacts artifacts: 'deploy-result.json', allowEmptyArchive: false
