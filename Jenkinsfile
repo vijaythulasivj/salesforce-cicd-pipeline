@@ -382,8 +382,9 @@ pipeline {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
                 script {
-                    echo 'Retrieving metadata components listed in destructiveChanges.xml...'
+                    echo 'Parsing metadata components from destructiveChanges.xml...'
         
+                    // Step 1: Extract metadata components to retrieve
                     writeFile file: 'extract_metadata.py', text: '''
                     import xml.etree.ElementTree as ET
                     destructive_xml = "destructive/destructiveChanges.xml"
@@ -399,45 +400,54 @@ pipeline {
                             components.append(f"{meta_type}:{member}")
                     
                     print(",".join(components))
-                    '''.stripIndent()
+                                '''.stripIndent()
         
                     def rawOutput = bat(
                         script: "${env.PYTHON_EXE} extract_metadata.py",
                         returnStdout: true
                     ).trim()
         
-                    def metadataComponents = rawOutput.readLines().last().trim()
-                    echo "Components to retrieve: ${metadataComponents}"
+                    // Grab only the last non-empty line (which is our metadata list)
+                    def metadataComponents = rawOutput.readLines().findAll { it?.trim() }[-1]
+                    echo "✅ Components to retrieve:\n${metadataComponents}"
         
+                    // Step 2: Clean old retrieve folder
                     bat 'if exist retrieved_metadata rmdir /s /q retrieved_metadata'
         
+                    // Step 3: Retrieve metadata using sf CLI
+                    echo '📦 Retrieving metadata from org...'
                     def retrieveStatus = bat(
                         script: """
-                            ${env.SF_CMD} force:mdapi:retrieve ^
-                                -r retrieved_metadata ^
-                                -u %ALIAS% ^
-                                -m "${metadataComponents}"
+                            ${env.SF_CMD} metadata retrieve ^
+                                --target-org %ALIAS% ^
+                                --output-dir retrieved_metadata ^
+                                --metadata "${metadataComponents}" ^
+                                --wait 10
                         """,
                         returnStatus: true
                     )
         
                     if (retrieveStatus != 0 || !fileExists('retrieved_metadata/unpackaged.zip')) {
-                        error "Metadata retrieval failed or ZIP not found."
+                        error "❌ Metadata retrieval failed or ZIP not found."
                     }
         
-                    echo 'Unzipping retrieved metadata...'
+                    // Step 4: Unzip retrieved metadata
+                    echo '📂 Unzipping retrieved metadata...'
                     bat 'powershell -Command "Expand-Archive -Path retrieved_metadata\\unpackaged.zip -DestinationPath unpackaged -Force"'
         
-                    echo 'Adding destructiveChanges.xml and package.xml to unpackaged folder...'
+                    // Step 5: Add destructive files to unpackaged
+                    echo '📝 Adding destructiveChanges.xml and package.xml...'
                     bat """
                         copy destructive\\destructiveChanges.xml unpackaged\\
                         copy destructive\\package.xml unpackaged\\
                     """
         
-                    echo 'Zipping all into destructiveDeployment.zip...'
+                    // Step 6: Zip everything
+                    echo '🗜️ Zipping all into destructiveDeployment.zip...'
                     bat 'powershell -Command "Compress-Archive -Path unpackaged\\* -DestinationPath destructiveDeployment.zip -Force"'
         
-                    echo 'Running dry-run validation (checkonly)...'
+                    // Step 7: Run checkonly (dry run) deploy
+                    echo '🚀 Running dry-run validation...'
                     def deployStatus = bat(
                         script: """
                             ${env.SFDX_CMD} force:mdapi:deploy ^
@@ -451,7 +461,12 @@ pipeline {
                     )
         
                     if (deployStatus != 0) {
+                        echo "❌ Validation failed. Output:"
+                        bat 'type deploy-result.json'
                         error "Dry-run deployment validation failed."
+                    } else {
+                        echo "✅ Dry-run deployment succeeded. Output:"
+                        bat 'type deploy-result.json'
                     }
                     /*
                     echo 'Validating metadata existence in sandbox using Python...'
