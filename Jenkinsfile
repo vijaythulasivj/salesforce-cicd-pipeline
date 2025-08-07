@@ -380,64 +380,54 @@ pipeline {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
                 script {
+                    echo 'Retrieving metadata components listed in destructiveChanges.xml...'
         
-                    echo 'Preparing destructive deployment ZIP...'
-        
-                    bat '''
-                        rmdir /s /q destructive-temp || exit 0
-                        mkdir destructive-temp
-        
-                        copy destructive\\destructiveChanges.xml destructive-temp\\
-                        copy destructive\\package.xml destructive-temp\\
-        
-                        del destructivePackage.zip >nul 2>&1
-                        powershell -Command "Compress-Archive -Path destructive-temp\\* -DestinationPath destructivePackage.zip -Force"
-                    '''
-        
-                    echo 'Contents of destructiveChanges.xml:'
-                    bat 'type destructive\\destructiveChanges.xml'
-
-                    echo 'Reading ZIP and verifying destructiveChanges.xml and package.xml using Python...'
-
-                    // Create the Python script dynamically
-                    writeFile file: 'read_zip.py', text: '''
-                    import zipfile
+                    // Step 1: Extract metadata components and build retrieve command dynamically
+                    writeFile file: 'extract_metadata.py', text: '''
+                    import xml.etree.ElementTree as ET
+                    destructive_xml = "destructive/destructiveChanges.xml"
+                    tree = ET.parse(destructive_xml)
+                    root = tree.getroot()
+                    ns = {"sf": "http://soap.sforce.com/2006/04/metadata"}
                     
-                    zip_path = 'destructivePackage.zip'
-                    files_to_read = ['destructiveChanges.xml', 'package.xml']
+                    components = []
+                    for t in root.findall("sf:types", ns):
+                        meta_type = t.find("sf:name", ns).text
+                        members = [m.text for m in t.findall("sf:members", ns)]
+                        for member in members:
+                            components.append(f"{meta_type}:{member}")
                     
-                    try:
-                        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                            print("Contents of ZIP:")
-                            for entry in zip_ref.namelist():
-                                print(entry)
-                    
-                            for target_file in files_to_read:
-                                if target_file in zip_ref.namelist():
-                                    print(f"\\nReading {target_file}...\\n")
-                                    with zip_ref.open(target_file) as file:
-                                        content = file.read().decode('utf-8')
-                                        print(content)
-                                else:
-                                    print(f"\\n{target_file} not found in ZIP.")
-                    except FileNotFoundError:
-                        print(f"File not found: {zip_path}")
-                    except Exception as e:
-                        print(f"An error occurred: {e}")
+                    print(",".join(components))
                     '''.stripIndent()
-                    
-                    // Run the script
-                    bat "${env.PYTHON_EXE} read_zip.py"
-
-                    
+        
+                    def metadataComponents = bat(script: "\"${env.PYTHON_EXE}\" extract_metadata.py", returnStdout: true).trim()
+        
+                    echo "Components to retrieve: ${metadataComponents}"
+        
+                    // Step 2: Retrieve metadata from org using sfdx
+                    bat """
+                        rmdir /s /q retrieved_metadata || exit 0
+                        sfdx force:mdapi:retrieve -r retrieved_metadata -u %ALIAS% -m ${metadataComponents}
+                    """
+        
+                    echo 'Unzipping retrieved metadata...'
+                    bat 'powershell -Command "Expand-Archive -Path retrieved_metadata\\unpackaged.zip -DestinationPath unpackaged -Force"'
+        
+                    echo 'Adding destructiveChanges.xml and package.xml to unpackaged folder...'
+                    bat """
+                        copy destructive\\destructiveChanges.xml unpackaged\\
+                        copy destructive\\package.xml unpackaged\\
+                    """
+        
+                    echo 'Zipping all into destructiveDeployment.zip...'
+                    bat """
+                        cd unpackaged
+                        powershell -Command "Compress-Archive -Path * -DestinationPath ..\\destructiveDeployment.zip -Force"
+                    """
+        
                     echo 'Running dry-run validation (checkonly)...'
                     bat """
-                        "${env.SFDX_CMD}" force:mdapi:deploy ^
-                            --zipfile destructivePackage.zip ^
-                            --targetusername %ALIAS% ^
-                            --wait 10 ^
-                            --checkonly ^
-                            --json > deploy-result.json
+                        sfdx force:mdapi:deploy --zipfile destructiveDeployment.zip --targetusername %ALIAS% --wait 10 --checkonly --json > deploy-result.json
                     """
                     /*
                     echo 'Validating metadata existence in sandbox using Python...'
