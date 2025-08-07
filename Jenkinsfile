@@ -420,7 +420,8 @@ pipeline {
                                 --target-org %ALIAS% ^
                                 --output-dir retrieved_metadata ^
                                 --metadata "${metadataComponents}" ^
-                                --wait 10
+                                --wait 10 ^
+                                --loglevel debug
                         """,
                         returnStatus: true
                     )
