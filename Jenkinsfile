@@ -368,6 +368,47 @@ pipeline {
             }
         }
 
+        stage('Generate package.xml from destructiveChanges.xml') {
+            steps {
+                echo 'Generating package.xml from destructiveChanges.xml...'
+                writeFile file: 'generate_package_xml.ps1', text: '''
+                [xml]$destructive = Get-Content destructive\\destructiveChanges.xml
+                $ns = @{ ns = "http://soap.sforce.com/2006/04/metadata" }
+
+                $packageXml = New-Object System.Xml.XmlDocument
+                $decl = $packageXml.CreateXmlDeclaration("1.0", "UTF-8", $null)
+                $packageXml.AppendChild($decl) | Out-Null
+
+                $package = $packageXml.CreateElement("Package", $ns.ns)
+                $packageXml.AppendChild($package) | Out-Null
+
+                foreach ($type in $destructive.Package.types) {
+                    $typeNode = $packageXml.CreateElement("types", $ns.ns)
+
+                    $nameNode = $packageXml.CreateElement("name", $ns.ns)
+                    $nameNode.InnerText = $type.name
+                    $typeNode.AppendChild($nameNode) | Out-Null
+
+                    $memberNode = $packageXml.CreateElement("members", $ns.ns)
+                    $memberNode.InnerText = "*"
+                    $typeNode.AppendChild($memberNode) | Out-Null
+
+                    $package.AppendChild($typeNode) | Out-Null
+                }
+
+                $versionNode = $packageXml.CreateElement("version", $ns.ns)
+                $versionNode.InnerText = $destructive.Package.version
+                $package.AppendChild($versionNode) | Out-Null
+
+                $packageXml.Save("destructive\\package.xml")
+                '''.stripIndent()
+
+                bat 'powershell -NoProfile -ExecutionPolicy Bypass -File generate_package_xml.ps1'
+                echo '✅ package.xml generated.'
+                bat 'type destructive\\package.xml'
+            }
+        }
+
         stage('Retrieve Metadata from Org') {
             steps {
                 script {
@@ -400,7 +441,6 @@ pipeline {
 
                     // Unzip the retrieved package for inspection or backup
                     bat 'powershell -Command "Expand-Archive -Path unpackaged\\unpackaged.zip -DestinationPath unpackaged -Force"'
-
                     echo 'Metadata retrieved and extracted to unpackaged directory.'
                 }
             }
@@ -413,19 +453,16 @@ pipeline {
                     bat 'dir destructive'
                     bat 'type destructive\\destructiveChanges.xml'
 
-                    // Write PowerShell script to parse destructiveChanges.xml
+                    // Write PowerShell script to parse and display component names
                     writeFile file: 'extract_metadata.ps1', text: '''
                     [xml]$xml = Get-Content destructive\\destructiveChanges.xml
                     $components = @()
-                    
                     foreach ($type in $xml.Package.types) {
                         $metaType = $type.name
                         foreach ($member in $type.members) {
                             $components += "$($metaType):$($member)"
                         }
                     }
-                    
-                    # Output as comma separated list
                     $components -join ","
                     '''.stripIndent()
 
@@ -469,7 +506,6 @@ pipeline {
                 }
             }
         }
-
 
         /*
         stage('Validate Destructive Deployment') {
