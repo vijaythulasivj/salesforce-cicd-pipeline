@@ -475,28 +475,28 @@ pipeline {
 
                     // Create the Python script dynamically
                     writeFile file: 'read_zip.py', text: '''
-                        import zipfile
+                    import zipfile
                     
-                        zip_path = 'destructivePackage.zip'
-                        target_file = 'destructiveChanges.xml'
+                    zip_path = 'destructivePackage.zip'
+                    target_file = 'destructiveChanges.xml'
                     
-                        try:
-                            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                                print("Contents of ZIP:")
-                                for entry in zip_ref.namelist():
-                                    print(entry)
+                    try:
+                        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                            print("Contents of ZIP:")
+                            for entry in zip_ref.namelist():
+                                print(entry)
                     
-                                if target_file in zip_ref.namelist():
-                                    print(f"\\nReading {target_file}...\\n")
-                                    with zip_ref.open(target_file) as file:
-                                        content = file.read().decode('utf-8')
-                                        print(content)
-                                else:
-                                    print(f"{target_file} not found in ZIP.")
-                        except FileNotFoundError:
-                            print(f"File not found: {zip_path}")
-                        except Exception as e:
-                            print(f"An error occurred: {e}")
+                            if target_file in zip_ref.namelist():
+                                print(f"\\nReading {target_file}...\\n")
+                                with zip_ref.open(target_file) as file:
+                                    content = file.read().decode('utf-8')
+                                    print(content)
+                            else:
+                                print(f"{target_file} not found in ZIP.")
+                    except FileNotFoundError:
+                        print(f"File not found: {zip_path}")
+                    except Exception as e:
+                        print(f"An error occurred: {e}")
                     '''.stripIndent()
                     
                     // Run the script
