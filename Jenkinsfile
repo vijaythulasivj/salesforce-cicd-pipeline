@@ -381,8 +381,9 @@ pipeline {
             steps {
                 script {
                     echo 'Parsing metadata components from destructiveChanges.xml...'
+                    bat 'dir destructive'
+                    bat 'type destructive\\destructiveChanges.xml'
         
-                    // Write a Python script to extract metadata types and members from destructiveChanges.xml
                     writeFile file: 'extract_metadata.py', text: '''
                     import xml.etree.ElementTree as ET
                     destructive_xml = "destructive/destructiveChanges.xml"
@@ -398,74 +399,46 @@ pipeline {
                             components.append(f"{meta_type}:{member}")
                     
                     print(",".join(components))
-                    '''.stripIndent()
+                                '''.stripIndent()
         
-                    // Run Python to get component list
-                    def rawOutput = bat(
-                        script: "${env.PYTHON_EXE} extract_metadata.py",
-                        returnStdout: true
-                    ).trim()
+                    echo 'Running python parsing script...'
+                    def rawOutput = bat(script: "${env.PYTHON_EXE} extract_metadata.py", returnStdout: true).trim()
+                    echo "Parsed components: ${rawOutput}"
         
-                    // Grab last non-empty line for metadata components string
-                    def metadataComponents = rawOutput.readLines().findAll { it?.trim() }[-1]
-                    echo "✅ Components to retrieve:\n${metadataComponents}"
-        
-                    // Clean old retrieve folder
-                    bat 'if exist retrieved_metadata rmdir /s /q retrieved_metadata'
-        
-                    echo '📦 Retrieving metadata from org...'
-                    def retrieveStatus = bat(
-                        script: """
-                            ${env.SF_CMD} metadata retrieve ^
-                                --target-org %ALIAS% ^
-                                --output-dir retrieved_metadata ^
-                                --metadata "${metadataComponents}" ^
-                                --wait 10 ^
-                                --loglevel debug
-                        """,
-                        returnStatus: true
-                    )
-        
-                    if (retrieveStatus != 0 || !fileExists('retrieved_metadata/unpackaged.zip')) {
-                        error "❌ Metadata retrieval failed or unpackaged.zip not found."
-                    }
-        
-                    echo '📂 Unzipping retrieved metadata...'
-                    bat 'powershell -Command "Expand-Archive -Path retrieved_metadata\\unpackaged.zip -DestinationPath unpackaged -Force"'
-        
-                    echo '📝 Copying destructiveChanges.xml and package.xml into unpackaged folder...'
-                    bat '''
-                        copy destructive\\destructiveChanges.xml unpackaged\\
-                        copy destructive\\package.xml unpackaged\\
-                    '''
-        
-                    echo '🗜️ Creating destructiveDeployment.zip package...'
+                    echo 'Preparing destructive deployment package...'
+                    bat 'if exist unpackaged rmdir /s /q unpackaged'
+                    bat 'mkdir unpackaged'
+                    bat 'copy destructive\\destructiveChanges.xml unpackaged\\'
+                    bat 'copy destructive\\package.xml unpackaged\\'
                     bat 'powershell -Command "Compress-Archive -Path unpackaged\\* -DestinationPath destructiveDeployment.zip -Force"'
         
-                    echo '🚀 Running dry-run deployment (checkonly) to validate destructive changes...'
-                    def deployStatus = bat(
-                        script: """
-                            ${env.SFDX_CMD} force:mdapi:deploy ^
-                                --zipfile destructiveDeployment.zip ^
-                                --targetusername %ALIAS% ^
-                                --wait 10 ^
-                                --checkonly ^
-                                --json > deploy-result.json
-                        """,
-                        returnStatus: true
-                    )
-        
-                    if (deployStatus != 0) {
-                        echo "❌ Validation failed. Output:"
-                        bat 'type deploy-result.json'
-                        error "Dry-run deployment validation failed."
-                    } else {
-                        echo "✅ Dry-run deployment succeeded. Output:"
-                        bat 'type deploy-result.json'
+                    echo 'Running dry-run deployment (checkonly) to validate destructive changes...'
+                    timeout(time: 20, unit: 'MINUTES') {
+                        def deployStatus = bat(
+                            script: """
+                                ${env.SFDX_CMD} force:mdapi:deploy ^
+                                    --zipfile destructiveDeployment.zip ^
+                                    --targetusername %ALIAS% ^
+                                    --wait 20 ^
+                                    --checkonly ^
+                                    --json ^
+                                    --loglevel debug > deploy-result.json
+                            """,
+                            returnStatus: true
+                        )
+                        if (deployStatus != 0) {
+                            echo "❌ Validation failed. Output:"
+                            bat 'type deploy-result.json'
+                            error "Dry-run deployment validation failed."
+                        } else {
+                            echo "✅ Dry-run deployment succeeded. Output:"
+                            bat 'type deploy-result.json'
+                        }
                     }
                 }
             }
         }
+
         /*
         stage('Validate Destructive Deployment') {
             when { expression { !params.REDEPLOY_METADATA } }
