@@ -382,7 +382,6 @@ pipeline {
                 script {
                     echo 'Retrieving metadata components listed in destructiveChanges.xml...'
         
-                    // Step 1: Extract metadata components and build retrieve command dynamically
                     writeFile file: 'extract_metadata.py', text: '''
                     import xml.etree.ElementTree as ET
                     destructive_xml = "destructive/destructiveChanges.xml"
@@ -400,39 +399,32 @@ pipeline {
                     print(",".join(components))
                     '''.stripIndent()
         
-                    def metadataComponents = bat(
-                        script: "\"${env.PYTHON_EXE}\" extract_metadata.py", 
+                    def rawOutput = bat(
+                        script: "${env.PYTHON_EXE} extract_metadata.py",
                         returnStdout: true
                     ).trim()
         
+                    def metadataComponents = rawOutput.readLines().last().trim()
                     echo "Components to retrieve: ${metadataComponents}"
         
-                    // Step 2: Remove old retrieve folder safely
                     bat 'if exist retrieved_metadata rmdir /s /q retrieved_metadata'
         
-                    // Step 3: Retrieve metadata from org using sfdx
                     def retrieveStatus = bat(
-                        script: "sfdx force:mdapi:retrieve -r retrieved_metadata -u %ALIAS% -m ${metadataComponents}", 
+                        script: """
+                            ${env.SFDX_CMD} force:mdapi:retrieve ^
+                                -r retrieved_metadata ^
+                                -u %ALIAS% ^
+                                -m "${metadataComponents}"
+                        """,
                         returnStatus: true
                     )
-                    if (retrieveStatus != 0) {
-                        error "Metadata retrieval failed."
-                    }
         
-                    // Step 4: Verify unpackaged.zip exists before unzipping
-                    def zipExists = fileExists('retrieved_metadata/unpackaged.zip')
-                    if (!zipExists) {
-                        error "Retrieve ZIP not found at retrieved_metadata/unpackaged.zip"
+                    if (retrieveStatus != 0 || !fileExists('retrieved_metadata/unpackaged.zip')) {
+                        error "Metadata retrieval failed or ZIP not found."
                     }
         
                     echo 'Unzipping retrieved metadata...'
-                    def unzipStatus = bat(
-                        script: 'powershell -Command "Expand-Archive -Path retrieved_metadata\\unpackaged.zip -DestinationPath unpackaged -Force"',
-                        returnStatus: true
-                    )
-                    if (unzipStatus != 0) {
-                        error "Failed to unzip retrieved metadata."
-                    }
+                    bat 'powershell -Command "Expand-Archive -Path retrieved_metadata\\unpackaged.zip -DestinationPath unpackaged -Force"'
         
                     echo 'Adding destructiveChanges.xml and package.xml to unpackaged folder...'
                     bat """
@@ -441,17 +433,21 @@ pipeline {
                     """
         
                     echo 'Zipping all into destructiveDeployment.zip...'
-                    bat """
-                        powershell -Command "Compress-Archive -Path unpackaged\\* -DestinationPath destructiveDeployment.zip -Force"
-                    """
+                    bat 'powershell -Command "Compress-Archive -Path unpackaged\\* -DestinationPath destructiveDeployment.zip -Force"'
         
                     echo 'Running dry-run validation (checkonly)...'
                     def deployStatus = bat(
                         script: """
-                            sfdx force:mdapi:deploy --zipfile destructiveDeployment.zip --targetusername %ALIAS% --wait 10 --checkonly --json > deploy-result.json
+                            ${env.SFDX_CMD} force:mdapi:deploy ^
+                                --zipfile destructiveDeployment.zip ^
+                                --targetusername %ALIAS% ^
+                                --wait 10 ^
+                                --checkonly ^
+                                --json > deploy-result.json
                         """,
                         returnStatus: true
                     )
+        
                     if (deployStatus != 0) {
                         error "Dry-run deployment validation failed."
                     }
