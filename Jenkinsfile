@@ -505,10 +505,22 @@ pipeline {
                             echo "✅ Dry-run deployment succeeded. Output:"
                             bat 'type deploy-result.json'
                         }
+
+                        // ✅ Extract and log component counts from JSON
+                        def deployJson = readJSON file: 'deploy-result.json'
+                        def result = deployJson.result
+
+                        echo "📊 Deployment Summary:"
+                        echo "🔢 numberComponentsTotal: ${result.numberComponentsTotal}"
+                        echo "✅ numberComponentsDeployed: ${result.numberComponentsDeployed}"
+                        echo "❌ numberComponentErrors: ${result.numberComponentErrors}"
+                        echo "📦 Deployment Status: ${result.status}"
+                        echo "🔁 Rollback On Error: ${result.rollbackOnError}"
                     }
                 }
             }
         }
+
 
         /*
         stage('Validate Destructive Deployment') {
