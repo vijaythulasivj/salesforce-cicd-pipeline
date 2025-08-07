@@ -384,33 +384,29 @@ pipeline {
                     bat 'dir destructive'
                     bat 'type destructive\\destructiveChanges.xml'
         
-                    writeFile file: 'extract_metadata.py', text: '''
-                    import xml.etree.ElementTree as ET
-                    destructive_xml = "destructive/destructiveChanges.xml"
-                    tree = ET.parse(destructive_xml)
-                    root = tree.getroot()
-                    ns = {"sf": "http://soap.sforce.com/2006/04/metadata"}
-                    
-                    components = []
-                    for t in root.findall("sf:types", ns):
-                        meta_type = t.find("sf:name", ns).text
-                        members = [m.text for m in t.findall("sf:members", ns)]
-                        for member in members:
-                            components.append(f"{meta_type}:{member}")
-                    
-                    print(",".join(components))
-                                '''.stripIndent()
+                    // Write PowerShell script to parse destructiveChanges.xml
+                    writeFile file: 'extract_metadata.ps1', text: '''
+                    [xml]$xml = Get-Content destructive\\destructiveChanges.xml
+                    $ns = @{ "sf" = "http://soap.sforce.com/2006/04/metadata" }
+                    $components = @()
         
-                    echo 'Running python parsing script...'
+                    foreach ($type in $xml.Package.types) {
+                        $metaType = $type.name
+                        foreach ($member in $type.members) {
+                            $components += "$metaType:$member"
+                        }
+                    }
+        
+                    # Output as comma separated list
+                    $components -join ","
+                    '''.stripIndent()
+        
+                    echo 'Running PowerShell parsing script...'
                     def rawOutput = bat(
-                        script: """
-                            @echo off
-                            \"${env.PYTHON_EXE}\" extract_metadata.py 2>&1
-                        """,
+                        script: 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File extract_metadata.ps1',
                         returnStdout: true
                     ).trim()
                     echo "Parsed components: ${rawOutput}"
-
         
                     echo 'Preparing destructive deployment package...'
                     bat 'if exist unpackaged rmdir /s /q unpackaged'
@@ -445,6 +441,7 @@ pipeline {
                 }
             }
         }
+
 
 
         /*
