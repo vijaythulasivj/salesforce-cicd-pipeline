@@ -377,7 +377,47 @@ pipeline {
                 }
             }
         }
-
+        stage('Validate Destructive Deployment') {
+            steps {
+                script {
+                    echo 'Preparing destructive deployment package...'
+        
+                    // Clean up old files if any
+                    bat 'if exist unpackaged rmdir /s /q unpackaged'
+                    bat 'mkdir unpackaged'
+        
+                    // Copy destructiveChanges.xml and package.xml into unpackaged folder
+                    bat 'copy destructive\\destructiveChanges.xml unpackaged\\'
+                    bat 'copy destructive\\package.xml unpackaged\\'
+        
+                    echo 'Zipping deployment package...'
+                    bat 'powershell -Command "Compress-Archive -Path unpackaged\\* -DestinationPath destructiveDeployment.zip -Force"'
+        
+                    echo 'Running dry-run deployment (checkonly) to validate destructive changes...'
+                    def deployStatus = bat(
+                        script: """
+                            ${env.SFDX_CMD} force:mdapi:deploy ^
+                                --zipfile destructiveDeployment.zip ^
+                                --targetusername %ALIAS% ^
+                                --wait 10 ^
+                                --checkonly ^
+                                --json > deploy-result.json
+                        """,
+                        returnStatus: true
+                    )
+        
+                    if (deployStatus != 0) {
+                        echo "❌ Validation failed. Output:"
+                        bat 'type deploy-result.json'
+                        error "Dry-run deployment validation failed."
+                    } else {
+                        echo "✅ Dry-run deployment succeeded. Output:"
+                        bat 'type deploy-result.json'
+                    }
+                }
+            }
+        }
+        /*
         stage('Validate Destructive Deployment') {
             when { expression { !params.REDEPLOY_METADATA } }
             steps {
@@ -688,6 +728,7 @@ pipeline {
                 }
             }
         }
+        */
     }
 }
 
