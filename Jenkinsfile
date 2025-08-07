@@ -471,28 +471,36 @@ pipeline {
         
                     echo 'All metadata components exist in sandbox. Proceeding with dry-run deployment...'
                     */
-                    echo 'Listing contents of destructivePackage.zip:'
-                    bat '''
-                        powershell -command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = 'destructivePackage.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); $zip.Entries | ForEach-Object { Write-Output $_.FullName }; $zip.Dispose()"
+                    echo 'Reading ZIP and verifying destructiveChanges.xml using Python...'
+
+                    // Create the Python script dynamically
+                    writeFile file: 'read_zip.py', text: '''
+                    import zipfile
+                    
+                    zip_path = 'destructivePackage.zip'
+                    target_file = 'destructiveChanges.xml'
+                    
+                    try:
+                        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                            print("Contents of ZIP:")
+                            for entry in zip_ref.namelist():
+                                print(entry)
+                    
+                            if target_file in zip_ref.namelist():
+                                print(f"\\nReading {target_file}...\\n")
+                                with zip_ref.open(target_file) as file:
+                                    content = file.read().decode('utf-8')
+                                    print(content)
+                            else:
+                                print(f"{target_file} not found in ZIP.")
+                    except FileNotFoundError:
+                        print(f"File not found: {zip_path}")
+                    except Exception as e:
+                        print(f"An error occurred: {e}")
                     '''
                     
-                    echo 'Reading destructiveChanges.xml from ZIP for verification...'
-                    bat 'powershell -NoProfile -Command "Add-Type -AssemblyName \\"System.IO.Compression.FileSystem\\"; $zip = [System.IO.Compression.ZipFile]::OpenRead(\\"destructivePackage.zip\\"); $entry = $zip.Entries | Where-Object { $_.FullName -eq \\"destructiveChanges.xml\\" }; if ($entry -ne $null) { $reader = New-Object IO.StreamReader($entry.Open()); $content = $reader.ReadToEnd(); $reader.Close(); Write-Output $content } else { Write-Output \\"destructiveChanges.xml not found in ZIP\\" }; $zip.Dispose()"'
-        
-                    
-                    // ✅ INSERT DEBUG STEP HERE
-                    echo 'Reading destructiveChanges.xml from ZIP for verification...'
-                    bat '''
-                        powershell -command "
-                            Add-Type -AssemblyName System.IO.Compression.FileSystem;
-                            $zipPath = 'destructivePackage.zip';
-                            $entry = [System.IO.Compression.ZipFile]::OpenRead($zipPath).Entries | Where-Object { $_.FullName -eq 'destructiveChanges.xml' };
-                            $reader = New-Object IO.StreamReader($entry.Open());
-                            $content = $reader.ReadToEnd();
-                            $reader.Close();
-                            Write-Output $content
-                        "
-                    '''
+                    // Run the script
+                    bat 'python read_zip.py'
                     
                     echo 'Running dry-run validation (checkonly)...'
                     bat """
