@@ -411,7 +411,7 @@ pipeline {
         
                     def retrieveStatus = bat(
                         script: """
-                            ${env.SFDX_CMD} force:mdapi:retrieve ^
+                            ${env.SF_CMD} force:mdapi:retrieve ^
                                 -r retrieved_metadata ^
                                 -u %ALIAS% ^
                                 -m "${metadataComponents}"
