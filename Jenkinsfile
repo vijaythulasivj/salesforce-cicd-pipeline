@@ -400,18 +400,39 @@ pipeline {
                     print(",".join(components))
                     '''.stripIndent()
         
-                    def metadataComponents = bat(script: "\"${env.PYTHON_EXE}\" extract_metadata.py", returnStdout: true).trim()
+                    def metadataComponents = bat(
+                        script: "\"${env.PYTHON_EXE}\" extract_metadata.py", 
+                        returnStdout: true
+                    ).trim()
         
                     echo "Components to retrieve: ${metadataComponents}"
         
-                    // Step 2: Retrieve metadata from org using sfdx
-                    bat """
-                        rmdir /s /q retrieved_metadata || exit 0
-                        sfdx force:mdapi:retrieve -r retrieved_metadata -u %ALIAS% -m ${metadataComponents}
-                    """
+                    // Step 2: Remove old retrieve folder safely
+                    bat 'if exist retrieved_metadata rmdir /s /q retrieved_metadata'
+        
+                    // Step 3: Retrieve metadata from org using sfdx
+                    def retrieveStatus = bat(
+                        script: "sfdx force:mdapi:retrieve -r retrieved_metadata -u %ALIAS% -m ${metadataComponents}", 
+                        returnStatus: true
+                    )
+                    if (retrieveStatus != 0) {
+                        error "Metadata retrieval failed."
+                    }
+        
+                    // Step 4: Verify unpackaged.zip exists before unzipping
+                    def zipExists = fileExists('retrieved_metadata/unpackaged.zip')
+                    if (!zipExists) {
+                        error "Retrieve ZIP not found at retrieved_metadata/unpackaged.zip"
+                    }
         
                     echo 'Unzipping retrieved metadata...'
-                    bat 'powershell -Command "Expand-Archive -Path retrieved_metadata\\unpackaged.zip -DestinationPath unpackaged -Force"'
+                    def unzipStatus = bat(
+                        script: 'powershell -Command "Expand-Archive -Path retrieved_metadata\\unpackaged.zip -DestinationPath unpackaged -Force"',
+                        returnStatus: true
+                    )
+                    if (unzipStatus != 0) {
+                        error "Failed to unzip retrieved metadata."
+                    }
         
                     echo 'Adding destructiveChanges.xml and package.xml to unpackaged folder...'
                     bat """
@@ -421,14 +442,19 @@ pipeline {
         
                     echo 'Zipping all into destructiveDeployment.zip...'
                     bat """
-                        cd unpackaged
-                        powershell -Command "Compress-Archive -Path * -DestinationPath ..\\destructiveDeployment.zip -Force"
+                        powershell -Command "Compress-Archive -Path unpackaged\\* -DestinationPath destructiveDeployment.zip -Force"
                     """
         
                     echo 'Running dry-run validation (checkonly)...'
-                    bat """
-                        sfdx force:mdapi:deploy --zipfile destructiveDeployment.zip --targetusername %ALIAS% --wait 10 --checkonly --json > deploy-result.json
-                    """
+                    def deployStatus = bat(
+                        script: """
+                            sfdx force:mdapi:deploy --zipfile destructiveDeployment.zip --targetusername %ALIAS% --wait 10 --checkonly --json > deploy-result.json
+                        """,
+                        returnStatus: true
+                    )
+                    if (deployStatus != 0) {
+                        error "Dry-run deployment validation failed."
+
                     /*
                     echo 'Validating metadata existence in sandbox using Python...'
         
