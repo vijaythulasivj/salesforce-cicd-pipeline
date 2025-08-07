@@ -402,8 +402,14 @@ pipeline {
                                 '''.stripIndent()
         
                     echo 'Running python parsing script...'
-                    // Capture python stdout reliably
-                    def rawOutput = bat(script: "\"${env.PYTHON_EXE}\" extract_metadata.py", returnStdout: true).trim()
+                    // Capture python stdout reliably with batch echo off to avoid command echo
+                    def rawOutput = bat(
+                        script: """
+                            @echo off
+                            \"${env.PYTHON_EXE}\" extract_metadata.py
+                        """,
+                        returnStdout: true
+                    ).trim()
                     echo "Parsed components: ${rawOutput}"
         
                     echo 'Preparing destructive deployment package...'
