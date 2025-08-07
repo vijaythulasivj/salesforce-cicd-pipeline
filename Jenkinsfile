@@ -508,7 +508,7 @@ pipeline {
                         echo "✅ Dry-run deployment succeeded. Output:"
                         bat 'type deploy-result.json'
                     }
-                    /*
+                    
                     echo 'Validating metadata existence in sandbox using Python...'
         
                     def validateScript = '''
@@ -582,9 +582,9 @@ pipeline {
                     }
         
                     echo 'All metadata components exist in sandbox. Proceeding with dry-run deployment...'
-                    */
+                
                     
-                    /*
+                    
                     echo 'Archiving deployment result...'
                     archiveArtifacts artifacts: 'deploy-result.json', allowEmptyArchive: false
 
@@ -724,10 +724,11 @@ pipeline {
                     }
                     
                     echo 'Orphan references check passed.' 
-                */
+            
                 }
             }
         }
+        */
     }
 }
 
