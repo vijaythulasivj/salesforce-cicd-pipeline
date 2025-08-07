@@ -387,19 +387,19 @@ pipeline {
                     // Write PowerShell script to parse destructiveChanges.xml
                     writeFile file: 'extract_metadata.ps1', text: '''
                     [xml]$xml = Get-Content destructive\\destructiveChanges.xml
-                    $ns = @{ "sf" = "http://soap.sforce.com/2006/04/metadata" }
                     $components = @()
-        
+                    
                     foreach ($type in $xml.Package.types) {
                         $metaType = $type.name
                         foreach ($member in $type.members) {
-                            $components += "$metaType:$member"
+                            $components += "$($metaType):$($member)"
                         }
                     }
-        
+                    
                     # Output as comma separated list
                     $components -join ","
                     '''.stripIndent()
+
         
                     echo 'Running PowerShell parsing script...'
                     def rawOutput = bat(
