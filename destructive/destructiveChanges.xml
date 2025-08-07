@@ -3,6 +3,7 @@
 	<types>
 		<name>ApexClass</name>
 		<members>AssetController</members>
+		<members>NonExistenceClass</members>
 		<members>AssetController_Test</members>
 		<members>BB_CaseProcessBuilder_Test</members>
 		<members>BlueBird_CaseProcessBuilder</members>
