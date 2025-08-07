@@ -500,7 +500,7 @@ pipeline {
                     '''
                     
                     // Run the script
-                    bat 'python read_zip.py'
+                    bat "${env.PYTHON_EXE} read_zip.py"
                     
                     echo 'Running dry-run validation (checkonly)...'
                     bat """
