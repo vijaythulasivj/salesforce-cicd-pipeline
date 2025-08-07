@@ -396,6 +396,49 @@ pipeline {
         
                     echo 'Contents of destructiveChanges.xml:'
                     bat 'type destructive\\destructiveChanges.xml'
+
+                    echo 'Reading ZIP and verifying destructiveChanges.xml and package.xml using Python...'
+
+                    // Create the Python script dynamically
+                    writeFile file: 'read_zip.py', text: '''
+                    import zipfile
+                    
+                    zip_path = 'destructivePackage.zip'
+                    files_to_read = ['destructiveChanges.xml', 'package.xml']
+                    
+                    try:
+                        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                            print("Contents of ZIP:")
+                            for entry in zip_ref.namelist():
+                                print(entry)
+                    
+                            for target_file in files_to_read:
+                                if target_file in zip_ref.namelist():
+                                    print(f"\\nReading {target_file}...\\n")
+                                    with zip_ref.open(target_file) as file:
+                                        content = file.read().decode('utf-8')
+                                        print(content)
+                                else:
+                                    print(f"\\n{target_file} not found in ZIP.")
+                    except FileNotFoundError:
+                        print(f"File not found: {zip_path}")
+                    except Exception as e:
+                        print(f"An error occurred: {e}")
+                    '''.stripIndent()
+                    
+                    // Run the script
+                    bat "${env.PYTHON_EXE} read_zip.py"
+
+                    
+                    echo 'Running dry-run validation (checkonly)...'
+                    bat """
+                        "${env.SFDX_CMD}" force:mdapi:deploy ^
+                            --zipfile destructivePackage.zip ^
+                            --targetusername %ALIAS% ^
+                            --wait 10 ^
+                            --checkonly ^
+                            --json > deploy-result.json
+                    """
                     /*
                     echo 'Validating metadata existence in sandbox using Python...'
         
@@ -471,48 +514,7 @@ pipeline {
         
                     echo 'All metadata components exist in sandbox. Proceeding with dry-run deployment...'
                     */
-                    echo 'Reading ZIP and verifying destructiveChanges.xml and package.xml using Python...'
-
-                    // Create the Python script dynamically
-                    writeFile file: 'read_zip.py', text: '''
-                    import zipfile
                     
-                    zip_path = 'destructivePackage.zip'
-                    files_to_read = ['destructiveChanges.xml', 'package.xml']
-                    
-                    try:
-                        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                            print("Contents of ZIP:")
-                            for entry in zip_ref.namelist():
-                                print(entry)
-                    
-                            for target_file in files_to_read:
-                                if target_file in zip_ref.namelist():
-                                    print(f"\\nReading {target_file}...\\n")
-                                    with zip_ref.open(target_file) as file:
-                                        content = file.read().decode('utf-8')
-                                        print(content)
-                                else:
-                                    print(f"\\n{target_file} not found in ZIP.")
-                    except FileNotFoundError:
-                        print(f"File not found: {zip_path}")
-                    except Exception as e:
-                        print(f"An error occurred: {e}")
-                    '''.stripIndent()
-                    
-                    // Run the script
-                    bat "${env.PYTHON_EXE} read_zip.py"
-
-                    
-                    echo 'Running dry-run validation (checkonly)...'
-                    bat """
-                        "${env.SFDX_CMD}" force:mdapi:deploy ^
-                            --zipfile destructivePackage.zip ^
-                            --targetusername %ALIAS% ^
-                            --wait 10 ^
-                            --checkonly ^
-                            --json > deploy-result.json
-                    """
                     /*
                     echo 'Archiving deployment result...'
                     archiveArtifacts artifacts: 'deploy-result.json', allowEmptyArchive: false
