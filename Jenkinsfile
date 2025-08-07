@@ -372,35 +372,38 @@ pipeline {
             steps {
                 echo 'Generating package.xml from destructiveChanges.xml...'
                 writeFile file: 'generate_package_xml.ps1', text: '''
-                [xml]$destructive = Get-Content destructive\\destructiveChanges.xml
-                $ns = @{ ns = "http://soap.sforce.com/2006/04/metadata" }
+                [xml]$xml = Get-Content destructive\\destructiveChanges.xml
 
-                $packageXml = New-Object System.Xml.XmlDocument
-                $decl = $packageXml.CreateXmlDeclaration("1.0", "UTF-8", $null)
-                $packageXml.AppendChild($decl) | Out-Null
+                $typesDict = @{}
 
-                $package = $packageXml.CreateElement("Package", $ns.ns)
-                $packageXml.AppendChild($package) | Out-Null
+                foreach ($type in $xml.Package.types) {
+                    $typeName = $type.name
+                    if (-not $typesDict.ContainsKey($typeName)) {
+                        $typesDict[$typeName] = @()
+                    }
 
-                foreach ($type in $destructive.Package.types) {
-                    $typeNode = $packageXml.CreateElement("types", $ns.ns)
-
-                    $nameNode = $packageXml.CreateElement("name", $ns.ns)
-                    $nameNode.InnerText = $type.name
-                    $typeNode.AppendChild($nameNode) | Out-Null
-
-                    $memberNode = $packageXml.CreateElement("members", $ns.ns)
-                    $memberNode.InnerText = "*"
-                    $typeNode.AppendChild($memberNode) | Out-Null
-
-                    $package.AppendChild($typeNode) | Out-Null
+                    foreach ($member in $type.members) {
+                        $typesDict[$typeName] += $member
+                    }
                 }
 
-                $versionNode = $packageXml.CreateElement("version", $ns.ns)
-                $versionNode.InnerText = $destructive.Package.version
-                $package.AppendChild($versionNode) | Out-Null
+                $packageXml = @()
+                $packageXml += '<?xml version="1.0" encoding="UTF-8"?>'
+                $packageXml += '<Package xmlns="http://soap.sforce.com/2006/04/metadata">'
 
-                $packageXml.Save("destructive\\package.xml")
+                foreach ($typeName in $typesDict.Keys) {
+                    $packageXml += "  <types>"
+                    foreach ($member in $typesDict[$typeName]) {
+                        $packageXml += "    <members>$member</members>"
+                    }
+                    $packageXml += "    <name>$typeName</name>"
+                    $packageXml += "  </types>"
+                }
+
+                $packageXml += "  <version>64.0</version>"
+                $packageXml += "</Package>"
+
+                $packageXml | Out-File -FilePath destructive\\package.xml -Encoding UTF8
                 '''.stripIndent()
 
                 bat 'powershell -NoProfile -ExecutionPolicy Bypass -File generate_package_xml.ps1'
