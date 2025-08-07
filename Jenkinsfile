@@ -350,16 +350,6 @@ pipeline {
     }
 
     stages {
-        /*
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    docker.build('salesforce-cli:latest')
-                }
-            }
-        }
-        */
-
         stage('Authenticate Salesforce') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
@@ -377,13 +367,52 @@ pipeline {
                 }
             }
         }
+
+        stage('Retrieve Metadata from Org') {
+            steps {
+                script {
+                    echo 'Retrieving metadata package from org...'
+
+                    // Clean previous retrieved package
+                    bat 'if exist unpackaged rmdir /s /q unpackaged'
+
+                    def retrieveStatus = bat(
+                        script: """
+                            ${env.SFDX_CMD} force:mdapi:retrieve ^
+                                --retrievetargetdir unpackaged ^
+                                --unpackaged destructive\\package.xml ^
+                                --targetusername %ALIAS% ^
+                                --wait 20 ^
+                                --json ^
+                                --loglevel debug > retrieve-result.json
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (retrieveStatus != 0) {
+                        echo '❌ Metadata retrieve failed. Output:'
+                        bat 'type retrieve-result.json'
+                        error 'Metadata retrieval failed.'
+                    } else {
+                        echo '✅ Metadata retrieved successfully. Output:'
+                        bat 'type retrieve-result.json'
+                    }
+
+                    // Unzip the retrieved package for inspection or backup
+                    bat 'powershell -Command "Expand-Archive -Path unpackaged\\unpackaged.zip -DestinationPath unpackaged -Force"'
+
+                    echo 'Metadata retrieved and extracted to unpackaged directory.'
+                }
+            }
+        }
+
         stage('Validate Destructive Deployment') {
             steps {
                 script {
                     echo 'Parsing metadata components from destructiveChanges.xml...'
                     bat 'dir destructive'
                     bat 'type destructive\\destructiveChanges.xml'
-        
+
                     // Write PowerShell script to parse destructiveChanges.xml
                     writeFile file: 'extract_metadata.ps1', text: '''
                     [xml]$xml = Get-Content destructive\\destructiveChanges.xml
@@ -400,21 +429,20 @@ pipeline {
                     $components -join ","
                     '''.stripIndent()
 
-        
                     echo 'Running PowerShell parsing script...'
                     def rawOutput = bat(
                         script: 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File extract_metadata.ps1',
                         returnStdout: true
                     ).trim()
                     echo "Parsed components: ${rawOutput}"
-        
+
                     echo 'Preparing destructive deployment package...'
                     bat 'if exist unpackaged rmdir /s /q unpackaged'
                     bat 'mkdir unpackaged'
                     bat 'copy destructive\\destructiveChanges.xml unpackaged\\'
                     bat 'copy destructive\\package.xml unpackaged\\'
                     bat 'powershell -Command "Compress-Archive -Path unpackaged\\* -DestinationPath destructiveDeployment.zip -Force"'
-        
+
                     echo 'Running dry-run deployment (checkonly) to validate destructive changes...'
                     timeout(time: 20, unit: 'MINUTES') {
                         def deployStatus = bat(
@@ -441,7 +469,6 @@ pipeline {
                 }
             }
         }
-
 
 
         /*
