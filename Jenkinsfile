@@ -402,15 +402,15 @@ pipeline {
                                 '''.stripIndent()
         
                     echo 'Running python parsing script...'
-                    // Capture python stdout reliably with batch echo off to avoid command echo
                     def rawOutput = bat(
                         script: """
                             @echo off
-                            \"${env.PYTHON_EXE}\" extract_metadata.py
+                            \"${env.PYTHON_EXE}\" extract_metadata.py 2>&1
                         """,
                         returnStdout: true
                     ).trim()
                     echo "Parsed components: ${rawOutput}"
+
         
                     echo 'Preparing destructive deployment package...'
                     bat 'if exist unpackaged rmdir /s /q unpackaged'
