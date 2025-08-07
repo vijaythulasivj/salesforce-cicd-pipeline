@@ -402,7 +402,8 @@ pipeline {
                                 '''.stripIndent()
         
                     echo 'Running python parsing script...'
-                    def rawOutput = bat(script: "${env.PYTHON_EXE} extract_metadata.py", returnStdout: true).trim()
+                    // Capture python stdout reliably
+                    def rawOutput = bat(script: "\"${env.PYTHON_EXE}\" extract_metadata.py", returnStdout: true).trim()
                     echo "Parsed components: ${rawOutput}"
         
                     echo 'Preparing destructive deployment package...'
@@ -438,6 +439,7 @@ pipeline {
                 }
             }
         }
+
 
         /*
         stage('Validate Destructive Deployment') {
