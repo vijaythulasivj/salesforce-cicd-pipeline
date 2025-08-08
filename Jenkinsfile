@@ -536,27 +536,94 @@ pipeline {
                 }
             }
         }
-        stage('🗑️ Step 5: Delete Metadata (Destructive Deployment)') {
-            when {
-                expression { return !params.REDEPLOY_METADATA }
-            }
+        stage('Delete Metadata (Destructive Deployment)') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
                     script {
                         echo '🚨 Deleting metadata using destructiveChanges.xml...'
-        
-                        bat """
-                            ${env.SFDX_CMD} force:mdapi:deploy ^
-                            --zipfile destructiveDeployment.zip ^
-                            --targetusername myAlias ^
-                            --wait 20 ^
-                            --ignorewarnings ^
-                            --json
-                        """
+                        def deleteStatus = bat(
+                            script: """
+                                ${env.SFDX_CMD} force:mdapi:deploy ^
+                                    --zipfile destructiveDeployment.zip ^
+                                    --targetusername %ALIAS% ^
+                                    --wait 20 ^
+                                    --ignorewarnings ^
+                                    --json > destructive-delete-result.json
+                            """,
+                            returnStatus: true
+                        )
+
+                        bat 'type destructive-delete-result.json'
+
+                        def deleteJson = readJSON file: 'destructive-delete-result.json'
+                        def result = deleteJson.result
+
+                        if (deleteStatus != 0 || !result.success) {
+                            def failures = result?.details?.componentFailures
+                            def errorMessages = []
+
+                            if (failures) {
+                                if (failures instanceof Map) {
+                                    errorMessages << "${failures.problemType}: ${failures.problem}"
+                                } else if (failures instanceof List) {
+                                    for (f in failures) {
+                                        errorMessages << "${f.problemType}: ${f.problem}"
+                                    }
+                                }
+
+                                echo "🚨 Deletion failed due to the following reason(s):"
+                                for (msg in errorMessages) {
+                                    echo "❌ $msg"
+                                }
+                            } else {
+                                echo "❌ Destructive deployment failed with unknown error."
+                            }
+
+                            error("Destructive deployment (delete) failed.")
+                        }
+
+                        echo "📊 Deletion Summary:"
+                        echo "🔢 numberComponentsTotal: ${result.numberComponentsTotal}"
+                        echo "✅ numberComponentsDeployed: ${result.numberComponentsDeployed}"
+                        echo "❌ numberComponentErrors: ${result.numberComponentErrors}"
+                        echo "📦 Deletion Status: ${result.status}"
+                        echo "🔁 Rollback On Error: ${result.rollbackOnError}"
                     }
                 }
             }
         }
+
+        stage('Verify Metadata Deletion') {
+            steps {
+                script {
+                    echo "Verifying deletion by retrieving metadata again..."
+
+                    bat 'if exist verify rmdir /s /q verify'
+                    bat """
+                        ${env.SFDX_CMD} force:mdapi:retrieve ^
+                            --retrievetargetdir verify ^
+                            --unpackaged destructive\\package.xml ^
+                            --targetusername %ALIAS% ^
+                            --wait 20 ^
+                            --json > verify-retrieve.json
+                    """
+
+                    def verifyJson = readJSON file: 'verify-retrieve.json'
+
+                    if (verifyJson.result?.fileProperties?.size() > 0) {
+                        echo "❌ Some components were not deleted:"
+                        verifyJson.result.fileProperties.each { f ->
+                            echo " - ${f.type}:${f.fullName}"
+                        }
+                        error("Destructive deployment did not delete all components.")
+                    } else {
+                        echo "✅ All targeted metadata components were successfully deleted."
+                    }
+                }
+            }
+        }
+
+
 
         stage('📦 Step 6: Redeploy from Backup (Optional Manual Trigger)') {
             when {
