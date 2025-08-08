@@ -150,7 +150,7 @@ pipeline {
                             script: """
                                 %SF_CMD% project deploy start ^
                                     --target-org %ALIAS% ^
-                                    --source-dir destructive ^
+                                    --metadata-dir destructive ^
                                     --wait 20 ^
                                     --dry-run ^
                                     --single-package ^
