@@ -122,7 +122,7 @@ pipeline {
                     bat 'dir destructive'
                     bat 'type destructive\\destructiveChanges.xml'
         
-                    // Optional: parse and log component names
+                    // Optional: Log parsed components
                     writeFile file: 'extract_metadata.ps1', text: '''
                     [xml]$xml = Get-Content destructive\\destructiveChanges.xml
                     $components = @()
@@ -151,7 +151,6 @@ pipeline {
                                     --target-org %ALIAS% ^
                                     --manifest destructive\\destructiveChanges.xml ^
                                     --post-destructive-changes destructive\\destructiveChanges.xml ^
-                                    --package-name "DestructiveDeployment" ^
                                     --wait 20 ^
                                     --dry-run ^
                                     --ignore-conflicts ^
