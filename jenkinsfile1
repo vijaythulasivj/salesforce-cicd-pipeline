@@ -150,7 +150,7 @@ pipeline {
                                 %SF_CMD% project deploy start ^
                               --target-org %ALIAS% ^
                               --source-path unpackaged ^
-                              --post-destructive-changes destructive\destructiveChanges.xml ^
+                              --post-destructive-changes destructive\\destructiveChanges.xml ^
                               --wait 20 ^
                               --dry-run ^
                               --ignore-conflicts ^
