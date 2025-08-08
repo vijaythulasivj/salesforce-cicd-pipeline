@@ -149,7 +149,7 @@ pipeline {
                             script: """
                                 %SF_CMD% project deploy start ^
                               --target-org %ALIAS% ^
-                              --source-path unpackaged ^
+                              --manifest destructive\package.xml ^
                               --post-destructive-changes destructive\\destructiveChanges.xml ^
                               --wait 20 ^
                               --dry-run ^
