@@ -437,7 +437,7 @@ pipeline {
                     if (retrieveStatus != 0 || retrieveJson.result?.messages) {
                         def message = retrieveJson.result?.messages?.problem ?: 'Unknown metadata retrieval error'
                         echo "❌ Metadata retrieve failed: ${message}"
-                        error "Metadata retrieval failed due to missing metadata in org: ${message}"
+                        error "Metadata validation failed due to missing metadata in org: ${message}"
                     }
         
                     echo '✅ Metadata retrieved successfully.'
