@@ -152,7 +152,7 @@ pipeline {
                                     --target-org %ALIAS% ^
                                     --source-dir destructive ^
                                     --wait 20 ^
-                                    --check-only ^
+                                    --dry-run ^
                                     --single-package ^
                                     --ignore-conflicts ^
                                     --json > deploy-result.json
