@@ -546,7 +546,7 @@ pipeline {
                         echo '🚨 Deleting metadata using destructiveChanges.xml...'
         
                         bat """
-                            ${env.SF_CMD} force:mdapi:deploy ^
+                            ${env.SFDX_CMD} force:mdapi:deploy ^
                             --zipfile destructiveDeployment.zip ^
                             --targetusername myAlias ^
                             --wait 20 ^
