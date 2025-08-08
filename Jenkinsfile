@@ -338,7 +338,7 @@ pipeline {
     environment {
         CONSUMER_KEY = credentials('sf-consumer-key')
         SF_USERNAME = credentials('sf-username')
-        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'  // Full path to SFDX CLI
+        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
         SFDX_CMD = '"C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd"'
         ALIAS = "myAlias"
         INSTANCE_URL = "https://test.salesforce.com"
@@ -417,7 +417,6 @@ pipeline {
                 script {
                     echo 'Retrieving metadata package from org...'
 
-                    // Clean previous retrieved package
                     bat 'if exist unpackaged rmdir /s /q unpackaged'
 
                     def retrieveStatus = bat(
@@ -442,7 +441,6 @@ pipeline {
                         bat 'type retrieve-result.json'
                     }
 
-                    // Unzip the retrieved package for inspection or backup
                     bat 'powershell -Command "Expand-Archive -Path unpackaged\\unpackaged.zip -DestinationPath unpackaged -Force"'
                     echo 'Metadata retrieved and extracted to unpackaged directory.'
                 }
@@ -456,7 +454,6 @@ pipeline {
                     bat 'dir destructive'
                     bat 'type destructive\\destructiveChanges.xml'
 
-                    // Write PowerShell script to parse and display component names
                     writeFile file: 'extract_metadata.ps1', text: '''
                     [xml]$xml = Get-Content destructive\\destructiveChanges.xml
                     $components = @()
@@ -477,11 +474,10 @@ pipeline {
                     echo "Parsed components: ${rawOutput}"
 
                     echo 'Preparing destructive deployment package...'
-                    bat 'if exist unpackaged rmdir /s /q unpackaged'
-                    bat 'mkdir unpackaged'
-                    bat 'copy destructive\\destructiveChanges.xml unpackaged\\'
-                    bat 'copy destructive\\package.xml unpackaged\\'
-                    bat 'powershell -Command "Compress-Archive -Path unpackaged\\* -DestinationPath destructiveDeployment.zip -Force"'
+                    bat 'if exist destructiveDeployment.zip del destructiveDeployment.zip'
+
+                    // Copy files directly from destructive folder, zip them at root of archive (NO unpackaged folder)
+                    bat 'powershell -Command "Compress-Archive -Path destructive\\destructiveChanges.xml,destructive\\package.xml -DestinationPath destructiveDeployment.zip -Force"'
 
                     echo 'Running dry-run deployment (checkonly) to validate destructive changes...'
                     timeout(time: 20, unit: 'MINUTES') {
@@ -506,7 +502,6 @@ pipeline {
                             bat 'type deploy-result.json'
                         }
 
-                        // ✅ Extract and log component counts from JSON
                         def deployJson = readJSON file: 'deploy-result.json'
                         def result = deployJson.result
 
@@ -520,6 +515,7 @@ pipeline {
                 }
             }
         }
+
 
 
         /*
