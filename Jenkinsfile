@@ -480,7 +480,13 @@ pipeline {
 
                     echo 'Preparing destructive deployment package...'
                     bat 'if exist destructiveDeployment.zip del destructiveDeployment.zip'
-                    bat 'powershell -Command "Compress-Archive -Path destructive\\destructiveChanges.xml,destructive\\package.xml -DestinationPath destructiveDeployment.zip -Force"'
+                    bat '''
+                    copy destructive\\destructiveChanges.xml .
+                    copy destructive\\package.xml .
+                    powershell -Command "Compress-Archive -Path destructiveChanges.xml,package.xml -DestinationPath destructiveDeployment.zip -Force"
+                    del destructiveChanges.xml
+                    del package.xml
+                    '''
 
                     echo 'Running dry-run deployment (checkonly) to validate destructive changes...'
                     timeout(time: 20, unit: 'MINUTES') {
