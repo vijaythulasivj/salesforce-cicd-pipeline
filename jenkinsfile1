@@ -1,0 +1,191 @@
+pipeline {
+    agent any
+
+    environment {
+        CONSUMER_KEY = credentials('sf-consumer-key')
+        SF_USERNAME = credentials('sf-username')
+        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
+        ALIAS = "myAlias"
+        INSTANCE_URL = "https://test.salesforce.com"
+        PYTHON_EXE = '"C:\\Users\\tsi082\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"'
+    }
+
+    parameters {
+        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
+    }
+
+    stages {
+        stage('Authenticate Salesforce') {
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                    %SF_CMD% auth jwt grant ^
+                        --client-id %CONSUMER_KEY% ^
+                        --jwt-key-file "%JWT_KEY%" ^
+                        --username %SF_USERNAME% ^
+                        --instance-url %INSTANCE_URL% ^
+                        --alias %ALIAS% ^
+                        --set-default ^
+                        --no-prompt
+                    """
+                    bat 'echo Authenticated successfully.'
+                }
+            }
+        }
+
+        stage('Generate package.xml from destructiveChanges.xml') {
+            steps {
+                echo 'Generating package.xml from destructiveChanges.xml...'
+                writeFile file: 'generate_package_xml.ps1', text: '''
+                [xml]$xml = Get-Content destructive\\destructiveChanges.xml
+
+                $typesDict = @{}
+
+                foreach ($type in $xml.Package.types) {
+                    $typeName = $type.name
+                    if (-not $typesDict.ContainsKey($typeName)) {
+                        $typesDict[$typeName] = @()
+                    }
+
+                    foreach ($member in $type.members) {
+                        $typesDict[$typeName] += $member
+                    }
+                }
+
+                $packageXml = @()
+                $packageXml += '<?xml version="1.0" encoding="UTF-8"?>'
+                $packageXml += '<Package xmlns="http://soap.sforce.com/2006/04/metadata">'
+
+                foreach ($typeName in $typesDict.Keys) {
+                    $packageXml += "  <types>"
+                    foreach ($member in $typesDict[$typeName]) {
+                        $packageXml += "    <members>$member</members>"
+                    }
+                    $packageXml += "    <name>$typeName</name>"
+                    $packageXml += "  </types>"
+                }
+
+                $packageXml += "  <version>64.0</version>"
+                $packageXml += "</Package>"
+
+                $packageXml | Out-File -FilePath destructive\\package.xml -Encoding UTF8
+                '''.stripIndent()
+
+                bat 'powershell -NoProfile -ExecutionPolicy Bypass -File generate_package_xml.ps1'
+                echo '✅ package.xml generated.'
+                bat 'type destructive\\package.xml'
+            }
+        }
+
+        stage('Retrieve Metadata from Org') {
+            steps {
+                script {
+                    echo 'Retrieving metadata package from org...'
+                    bat 'if exist unpackaged rmdir /s /q unpackaged'
+
+                    def retrieveStatus = bat(
+                        script: """
+                            %SF_CMD% project retrieve start ^
+                                --target-org %ALIAS% ^
+                                --manifest destructive\\package.xml ^
+                                --output-dir unpackaged ^
+                                --wait 20 ^
+                                --json > retrieve-result.json
+                        """,
+                        returnStatus: true
+                    )
+
+                    bat 'type retrieve-result.json'
+                    def retrieveJson = readJSON file: 'retrieve-result.json'
+
+                    if (retrieveStatus != 0 || retrieveJson.status != 0) {
+                        def message = retrieveJson.message ?: 'Unknown metadata retrieval error'
+                        echo "❌ Metadata retrieve failed: ${message}"
+                        error "Metadata validation failed due to missing metadata in org: ${message}"
+                    }
+
+                    echo '✅ Metadata retrieved successfully.'
+                    bat 'powershell -Command "Expand-Archive -Path unpackaged\\unpackaged.zip -DestinationPath unpackaged -Force"'
+                    echo 'Metadata retrieved and extracted to unpackaged directory.'
+
+                    // ✅ Backup for redeployment
+                    archiveArtifacts artifacts: 'unpackaged/unpackaged.zip', fingerprint: true
+                    bat 'copy unpackaged\\unpackaged.zip retrieved-metadata.zip'
+                    archiveArtifacts artifacts: 'retrieved-metadata.zip'
+                }
+            }
+        }
+
+        stage('Validate Destructive Deployment') {
+            steps {
+                script {
+                    echo 'Parsing metadata components from destructiveChanges.xml...'
+                    bat 'dir destructive'
+                    bat 'type destructive\\destructiveChanges.xml'
+
+                    writeFile file: 'extract_metadata.ps1', text: '''
+                    [xml]$xml = Get-Content destructive\\destructiveChanges.xml
+                    $components = @()
+                    foreach ($type in $xml.Package.types) {
+                        $metaType = $type.name
+                        foreach ($member in $type.members) {
+                            $components += "$($metaType):$($member)"
+                        }
+                    }
+                    $components -join ","
+                    '''.stripIndent()
+
+                    echo 'Running PowerShell parsing script...'
+                    def rawOutput = bat(
+                        script: 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File extract_metadata.ps1',
+                        returnStdout: true
+                    ).trim()
+                    echo "Parsed components: ${rawOutput}"
+
+                    echo 'Preparing destructive deployment package...'
+                    bat 'if exist destructiveDeployment.zip del destructiveDeployment.zip'
+                    bat '''
+                    copy destructive\\destructiveChanges.xml .
+                    copy destructive\\package.xml .
+                    powershell -Command "Compress-Archive -Path destructiveChanges.xml,package.xml -DestinationPath destructiveDeployment.zip -Force"
+                    del destructiveChanges.xml
+                    del package.xml
+                    '''
+
+                    echo 'Running dry-run deployment (checkonly) to validate destructive changes...'
+                    timeout(time: 20, unit: 'MINUTES') {
+                        def deployStatus = bat(
+                            script: """
+                                %SF_CMD% project deploy start ^
+                                    --target-org %ALIAS% ^
+                                    --zip-file destructiveDeployment.zip ^
+                                    --wait 20 ^
+                                    --check-only ^
+                                    --single-package ^
+                                    --ignore-conflicts ^
+                                    --json > deploy-result.json
+                            """,
+                            returnStatus: true
+                        )
+
+                        bat 'type deploy-result.json'
+
+                        def deployJson = readJSON file: 'deploy-result.json'
+                        if (deployStatus != 0 || deployJson.status != 0 || !deployJson.result?.success) {
+                            def message = deployJson.message ?: 'Unknown deployment validation failure'
+                            echo "❌ Validation failed: ${message}"
+                            error "Dry-run deployment validation failed."
+                        }
+
+                        echo "📊 Deployment Summary:"
+                        echo "🔢 numberComponentsTotal: ${deployJson.result.numberComponentsTotal}"
+                        echo "✅ numberComponentsDeployed: ${deployJson.result.numberComponentsDeployed}"
+                        echo "❌ numberComponentErrors: ${deployJson.result.numberComponentErrors}"
+                        echo "📦 Deployment Status: ${deployJson.result.status}"
+                        echo "🔁 Rollback On Error: ${deployJson.result.rollbackOnError}"
+                    }
+                }
+            }
+        }
+    }
+}
