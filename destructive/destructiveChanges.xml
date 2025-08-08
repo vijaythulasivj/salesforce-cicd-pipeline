@@ -7,6 +7,7 @@
 		<members>BlueBird_Task_Ctrl_Test</members>
 		<members>CaseMGMT_TriggerHandler_Test</members>
 		<members>CaseTriggerHandler</members>
+		<members>nonExistenceClass</members>		
 	</types>	
 	<version>64.0</version>
 </Package>
