@@ -417,7 +417,7 @@ pipeline {
                 script {
                     echo 'Retrieving metadata package from org...'
                     bat 'if exist unpackaged rmdir /s /q unpackaged'
-
+        
                     def retrieveStatus = bat(
                         script: """
                             ${env.SFDX_CMD} force:mdapi:retrieve ^
@@ -430,16 +430,17 @@ pipeline {
                         """,
                         returnStatus: true
                     )
-
-                    if (retrieveStatus != 0) {
-                        echo '❌ Metadata retrieve failed. Output:'
-                        bat 'type retrieve-result.json'
-                        error 'Metadata retrieval failed.'
-                    } else {
-                        echo '✅ Metadata retrieved successfully. Output:'
-                        bat 'type retrieve-result.json'
+        
+                    bat 'type retrieve-result.json'
+                    def retrieveJson = readJSON file: 'retrieve-result.json'
+        
+                    if (retrieveStatus != 0 || retrieveJson.result?.messages) {
+                        def message = retrieveJson.result?.messages?.problem ?: 'Unknown metadata retrieval error'
+                        echo "❌ Metadata retrieve failed: ${message}"
+                        error "Metadata retrieval failed due to missing metadata in org: ${message}"
                     }
-
+        
+                    echo '✅ Metadata retrieved successfully.'
                     bat 'powershell -Command "Expand-Archive -Path unpackaged\\unpackaged.zip -DestinationPath unpackaged -Force"'
                     echo 'Metadata retrieved and extracted to unpackaged directory.'
                 }
