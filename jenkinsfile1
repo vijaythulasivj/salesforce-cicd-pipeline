@@ -121,7 +121,7 @@ pipeline {
                     echo 'Parsing metadata components from destructiveChanges.xml...'
                     bat 'dir destructive'
                     bat 'type destructive\\destructiveChanges.xml'
-
+        
                     writeFile file: 'extract_metadata.ps1', text: '''
                     [xml]$xml = Get-Content destructive\\destructiveChanges.xml
                     $components = @()
@@ -133,31 +133,24 @@ pipeline {
                     }
                     $components -join ","
                     '''.stripIndent()
-
+        
                     echo 'Running PowerShell parsing script...'
                     def rawOutput = bat(
                         script: 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File extract_metadata.ps1',
                         returnStdout: true
                     ).trim()
                     echo "Parsed components: ${rawOutput}"
-
+        
                     echo 'Preparing destructive deployment package...'
-                    bat 'if exist destructiveDeployment.zip del destructiveDeployment.zip'
-                    bat '''
-                    copy destructive\\destructiveChanges.xml .
-                    copy destructive\\package.xml .
-                    powershell -Command "Compress-Archive -Path destructiveChanges.xml,package.xml -DestinationPath destructiveDeployment.zip -Force"
-                    del destructiveChanges.xml
-                    del package.xml
-                    '''
-
+                    // No need to zip files anymore since we'll deploy from directory
+        
                     echo 'Running dry-run deployment (checkonly) to validate destructive changes...'
                     timeout(time: 20, unit: 'MINUTES') {
                         def deployStatus = bat(
                             script: """
                                 %SF_CMD% project deploy start ^
                                     --target-org %ALIAS% ^
-                                    --zip-file destructiveDeployment.zip ^
+                                    --source-dir destructive ^
                                     --wait 20 ^
                                     --check-only ^
                                     --single-package ^
@@ -166,16 +159,16 @@ pipeline {
                             """,
                             returnStatus: true
                         )
-
+        
                         bat 'type deploy-result.json'
-
+        
                         def deployJson = readJSON file: 'deploy-result.json'
                         if (deployStatus != 0 || deployJson.status != 0 || !deployJson.result?.success) {
                             def message = deployJson.message ?: 'Unknown deployment validation failure'
                             echo "❌ Validation failed: ${message}"
                             error "Dry-run deployment validation failed."
                         }
-
+        
                         echo "📊 Deployment Summary:"
                         echo "🔢 numberComponentsTotal: ${deployJson.result.numberComponentsTotal}"
                         echo "✅ numberComponentsDeployed: ${deployJson.result.numberComponentsDeployed}"
