@@ -5,5 +5,5 @@
 		<members>AssetController</members>
 		<members>NonExistenceClass</members>
 	</types>	
-	<version>64.0</version>
+	<version>59.0</version>
 </Package>
