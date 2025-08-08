@@ -595,6 +595,7 @@ pipeline {
                                     --targetusername %ALIAS% ^
                                     --wait 20 ^
                                     --ignorewarnings ^
+                                    --singlepackage ^
                                     --json > destructive-delete-result.json
                             """,
                             returnStatus: true
