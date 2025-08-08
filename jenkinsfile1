@@ -142,7 +142,12 @@ pipeline {
                     echo "Parsed components: ${rawOutput}"
         
                     echo 'Preparing destructive deployment package...'
-                    // No need to zip files anymore since we'll deploy from directory
+        
+                    // ✅ Write a minimal package.xml required for the deployment to succeed
+                    writeFile file: 'destructive/package.xml', text: '''<?xml version="1.0" encoding="UTF-8"?>
+                    <Package xmlns="http://soap.sforce.com/2006/04/metadata">
+                        <version>59.0</version>
+                    </Package>'''
         
                     echo 'Running dry-run deployment (checkonly) to validate destructive changes...'
                     timeout(time: 20, unit: 'MINUTES') {
