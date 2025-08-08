@@ -541,19 +541,22 @@ pipeline {
                 expression { return !params.REDEPLOY_METADATA }
             }
             steps {
-                script {
-                    echo '🚨 Deleting metadata using destructiveChanges.xml...'
-                    bat """
-                        %SF_CMD% project deploy start ^
-                            --target-org %SF_USERNAME% ^
-                            --manifest destructive\\package.xml ^
-                            --post-destructive-changes destructive\\destructiveChanges.xml ^
-                            --ignore-warnings ^
-                            --wait 10
-                    """
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    script {
+                        echo '🚨 Deleting metadata using destructiveChanges.xml...'
+        
+                        bat """
+                            ${env.SF_CMD} project deploy start ^
+                                --target-org %SF_USERNAME% ^
+                                --post-destructive-changes destructive\\destructiveChanges.xml ^
+                                --ignore-warnings ^
+                                --wait 10
+                        """
+                    }
                 }
             }
         }
+
         stage('📦 Step 6: Redeploy from Backup (Optional Manual Trigger)') {
             when {
                 expression { return params.REDEPLOY_METADATA }
