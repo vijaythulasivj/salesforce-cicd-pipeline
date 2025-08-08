@@ -546,7 +546,7 @@ pipeline {
                         echo '🚨 Deleting metadata using destructiveChanges.xml...'
         
                         bat """
-                            sf project deploy start ^
+                            ${env.SF_CMD} project deploy start ^
                             --target-org **** ^
                             --post-destructive-changes destructive\\destructiveChanges.xml ^
                             --manifest destructive\\package.xml ^
