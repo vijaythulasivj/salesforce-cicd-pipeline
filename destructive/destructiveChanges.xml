@@ -2,11 +2,7 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
 	<types>
 		<name>ApexClass</name>
-		<members>AssetController</members>
-		<members>BlueBird_CheckOrderItem_Test</members>
-		<members>BlueBird_Task_Ctrl_Test</members>
-		<members>CaseMGMT_TriggerHandler_Test</members>
-		<members>CaseTriggerHandler</members>	
+		<members>ASKYTightestMatchServiceImpl.cls</members>	
 	</types>	
 	<version>59.0</version>
 </Package>
