@@ -1,3 +1,4 @@
+/*
 pipeline {
     agent any
 
@@ -181,3 +182,75 @@ pipeline {
         }
     }
 }
+*/
+pipeline {
+    agent any
+
+    environment {
+        CONSUMER_KEY = credentials('sf-consumer-key')
+        SF_USERNAME = credentials('sf-username')
+        SF_CMD = '"C:\\Program Files\\sf\\bin\\sf.cmd"'
+        ALIAS = "myAlias"
+        INSTANCE_URL = "https://test.salesforce.com"
+    }
+
+    parameters {
+        booleanParam(name: 'REDEPLOY_METADATA', defaultValue: false, description: 'Redeploy previously backed-up metadata?')
+    }
+
+    stages {
+
+        stage('Authenticate Salesforce') {
+            steps {
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                        %SF_CMD% auth jwt grant ^
+                            --client-id %CONSUMER_KEY% ^
+                            --jwt-key-file "%JWT_KEY%" ^
+                            --username %SF_USERNAME% ^
+                            --instance-url %INSTANCE_URL% ^
+                            --alias %ALIAS% ^
+                            --set-default ^
+                            --no-prompt
+                    """
+                }
+            }
+        }
+
+        stage('Validate Destructive Deployment') {
+            steps {
+                script {
+                    // ... your existing parsing scripts ...
+        
+                    timeout(time: 20, unit: 'MINUTES') {
+                        def deployStatus = bat(
+                            script: """
+                                %SF_CMD% project deploy start ^
+                                    --target-org %ALIAS% ^
+                                    --manifest destructive\\package.xml ^
+                                    --post-destructive-changes destructive\\destructiveChanges.xml ^
+                                    --wait 20 ^
+                                    --dry-run ^
+                                    --ignore-conflicts ^
+                                    --json > deploy-result.json
+                            """,
+                            returnStatus: true
+                        )
+        
+                        def deployJson = readJSON file: 'deploy-result.json'
+                        if (deployStatus != 0 || deployJson.status != 0 || !deployJson.result?.success) {
+                            error "❌ Dry-run deployment failed: ${deployJson.message ?: 'Unknown error'}"
+                        }
+        
+                        echo "📊 Deployment Summary:"
+                        echo "✔️ Total Components: ${deployJson.result.numberComponentsTotal}"
+                        echo "✔️ Deployed: ${deployJson.result.numberComponentsDeployed}"
+                        echo "❌ Errors: ${deployJson.result.numberComponentErrors}"
+                        echo "📦 Status: ${deployJson.result.status}"
+                    }
+                }
+            }
+        }
+    }
+}
+
