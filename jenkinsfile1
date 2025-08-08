@@ -105,7 +105,8 @@ pipeline {
                     }
 
                     echo '✅ Metadata retrieved successfully.'
-                    bat 'powershell -Command "Expand-Archive -Path unpackaged\\unpackaged.zip -DestinationPath unpackaged -Force"'
+                    echo 'Metadata already extracted to unpackaged directory, no unzip needed.'
+
                     echo 'Metadata retrieved and extracted to unpackaged directory.'
 
                     // ✅ Backup for redeployment
