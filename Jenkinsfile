@@ -546,14 +546,13 @@ pipeline {
                         echo '🚨 Deleting metadata using destructiveChanges.xml...'
         
                         bat """
-                            ${env.SF_CMD} project deploy start ^
-                            --target-org %ALIAS% ^
-                            --post-destructive-changes destructive\\destructiveChanges.xml ^
-                            --manifest destructive\\package.xml ^
-                            --ignore-warnings ^
-                            --wait 10
+                            ${env.SF_CMD} force:mdapi:deploy ^
+                            --zipfile destructiveDeployment.zip ^
+                            --targetusername myAlias ^
+                            --wait 20 ^
+                            --ignorewarnings ^
+                            --json
                         """
-
                     }
                 }
             }
