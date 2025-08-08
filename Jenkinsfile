@@ -542,6 +542,47 @@ pipeline {
                 }
             }
         }
+
+        stage('✅ Diagnostic Checks for Destructive Deployment') {
+            steps {
+                script {
+                    echo "🔍 Step A: Validate ZIP Structure..."
+        
+                    // Extract the ZIP contents to a temp folder
+                    bat '''
+                    rmdir /s /q zipcheck || exit 0
+                    mkdir zipcheck
+                    powershell -Command "Expand-Archive -Path destructiveDeployment.zip -DestinationPath zipcheck -Force"
+                    dir zipcheck
+                    '''
+        
+                    echo "✅ ZIP structure checked. It should contain only: destructiveChanges.xml and package.xml"
+        
+                    echo "🔍 Step B: Check Metadata Availability in Org..."
+        
+                    // Describe metadata (overview)
+                    bat '"C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd" force:mdapi:describemetadata -u myAlias --json > describe-metadata.json'
+                    bat 'type describe-metadata.json'
+        
+                    // List ApexClass metadata specifically
+                    bat '"C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd" force:mdapi:listmetadata -m ApexClass -u myAlias --json > list-apexclass.json'
+                    bat 'type list-apexclass.json'
+        
+                    echo "✅ Metadata listing complete. Confirm the class names are present and case-sensitive."
+        
+                    echo "🔍 Step C: Try Destructive Deployment with --verbose flag..."
+        
+                    // Re-run destructive deployment with verbose logging
+                    bat '"C:\\Users\\tsi082\\AppData\\Roaming\\npm\\sfdx.cmd" force:mdapi:deploy --zipfile destructiveDeployment.zip --targetusername myAlias --wait 20 --ignorewarnings --verbose --json > verbose-deploy-result.json'
+        
+                    // Output verbose deployment result
+                    bat 'type verbose-deploy-result.json'
+        
+                    echo "✅ Verbose deployment run complete. Analyze output for skipped or ignored metadata."
+                }
+            }
+        }
+
         stage('Delete Metadata (Destructive Deployment)') {
             steps {
                 withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
