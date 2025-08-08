@@ -443,6 +443,11 @@ pipeline {
                     echo '✅ Metadata retrieved successfully.'
                     bat 'powershell -Command "Expand-Archive -Path unpackaged\\unpackaged.zip -DestinationPath unpackaged -Force"'
                     echo 'Metadata retrieved and extracted to unpackaged directory.'
+        
+                    // ✅ Backup for redeployment
+                    archiveArtifacts artifacts: 'unpackaged/unpackaged.zip', fingerprint: true
+                    bat 'copy unpackaged\\unpackaged.zip retrieved-metadata.zip'
+                    archiveArtifacts artifacts: 'retrieved-metadata.zip'
                 }
             }
         }
@@ -531,6 +536,57 @@ pipeline {
                 }
             }
         }
+        stage('🗑️ Step 5: Delete Metadata (Destructive Deployment)') {
+            when {
+                expression { return !params.REDEPLOY_METADATA }
+            }
+            steps {
+                script {
+                    echo '🚨 Deleting metadata using destructiveChanges.xml...'
+                    bat """
+                        %SF_CMD% project deploy start ^
+                            --target-org %SF_USERNAME% ^
+                            --manifest destructive\\package.xml ^
+                            --post-destructive-changes destructive\\destructiveChanges.xml ^
+                            --ignore-warnings ^
+                            --wait 10
+                    """
+                }
+            }
+        }
+        stage('📦 Step 6: Redeploy from Backup (Optional Manual Trigger)') {
+            when {
+                expression { return params.REDEPLOY_METADATA }
+            }
+            steps {
+                echo "📤 Redeploying previously retrieved metadata…"
+
+                copyArtifacts(
+                    projectName: env.JOB_NAME,
+                    filter: 'retrieved-metadata.zip',
+                    selector: lastSuccessful()
+                )
+
+                script {
+                    if (!fileExists('retrieved-metadata.zip')) {
+                        error "❌ Could not retrieve 'retrieved-metadata.zip'. Redeploy cancelled."
+                    }
+                }
+
+                bat 'powershell Expand-Archive -Path retrieved-metadata.zip -DestinationPath retrieved-metadata -Force'
+
+                withCredentials([file(credentialsId: 'sf-jwt-private-key', variable: 'JWT_KEY')]) {
+                    bat """
+                        %SF_CMD% project deploy start ^
+                            --target-org %SF_USERNAME% ^
+                            --source-dir retrieved-metadata ^
+                            --ignore-warnings ^
+                            --wait 10
+                    """
+                }
+            }
+        }
+
 
 
 
