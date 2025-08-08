@@ -82,7 +82,7 @@ pipeline {
                 script {
                     echo 'Retrieving metadata package from org...'
                     bat 'if exist unpackaged rmdir /s /q unpackaged'
-
+        
                     def retrieveStatus = bat(
                         script: """
                             %SF_CMD% project retrieve start ^
@@ -94,28 +94,26 @@ pipeline {
                         """,
                         returnStatus: true
                     )
-
+        
                     bat 'type retrieve-result.json'
                     def retrieveJson = readJSON file: 'retrieve-result.json'
-
+        
                     if (retrieveStatus != 0 || retrieveJson.status != 0) {
                         def message = retrieveJson.message ?: 'Unknown metadata retrieval error'
                         echo "❌ Metadata retrieve failed: ${message}"
                         error "Metadata validation failed due to missing metadata in org: ${message}"
                     }
-
+        
                     echo '✅ Metadata retrieved successfully.'
                     echo 'Metadata already extracted to unpackaged directory, no unzip needed.'
-
                     echo 'Metadata retrieved and extracted to unpackaged directory.'
-
-                    // ✅ Backup for redeployment
-                    archiveArtifacts artifacts: 'unpackaged/unpackaged.zip', fingerprint: true
-                    bat 'copy unpackaged\\unpackaged.zip retrieved-metadata.zip'
-                    archiveArtifacts artifacts: 'retrieved-metadata.zip'
+        
+                    // Archive the unpackaged directory contents (not a non-existing zip)
+                    archiveArtifacts artifacts: 'unpackaged/**', fingerprint: true
                 }
             }
         }
+
 
         stage('Validate Destructive Deployment') {
             steps {
