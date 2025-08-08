@@ -8,5 +8,5 @@
 		<members>CaseMGMT_TriggerHandler_Test</members>
 		<members>CaseTriggerHandler</members>	
 	</types>	
-	<version>64.0</version>
+	<version>59.0</version>
 </Package>
