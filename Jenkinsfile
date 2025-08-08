@@ -416,7 +416,6 @@ pipeline {
             steps {
                 script {
                     echo 'Retrieving metadata package from org...'
-
                     bat 'if exist unpackaged rmdir /s /q unpackaged'
 
                     def retrieveStatus = bat(
@@ -475,8 +474,6 @@ pipeline {
 
                     echo 'Preparing destructive deployment package...'
                     bat 'if exist destructiveDeployment.zip del destructiveDeployment.zip'
-
-                    // Copy files directly from destructive folder, zip them at root of archive (NO unpackaged folder)
                     bat 'powershell -Command "Compress-Archive -Path destructive\\destructiveChanges.xml,destructive\\package.xml -DestinationPath destructiveDeployment.zip -Force"'
 
                     echo 'Running dry-run deployment (checkonly) to validate destructive changes...'
@@ -493,17 +490,35 @@ pipeline {
                             """,
                             returnStatus: true
                         )
-                        if (deployStatus != 0) {
-                            echo "❌ Validation failed. Output:"
-                            bat 'type deploy-result.json'
-                            error "Dry-run deployment validation failed."
-                        } else {
-                            echo "✅ Dry-run deployment succeeded. Output:"
-                            bat 'type deploy-result.json'
-                        }
+
+                        bat 'type deploy-result.json'
 
                         def deployJson = readJSON file: 'deploy-result.json'
                         def result = deployJson.result
+
+                        if (deployStatus != 0 || !result.success) {
+                            def failures = result?.details?.componentFailures
+                            def errorMessages = []
+
+                            if (failures) {
+                                if (failures instanceof Map) {
+                                    errorMessages << "${failures.problemType}: ${failures.problem}"
+                                } else if (failures instanceof List) {
+                                    for (f in failures) {
+                                        errorMessages << "${f.problemType}: ${f.problem}"
+                                    }
+                                }
+
+                                echo "🚨 Deployment failed due to the following reason(s):"
+                                for (msg in errorMessages) {
+                                    echo "❌ $msg"
+                                }
+                            } else {
+                                echo "❌ Deployment failed, but no specific component errors found."
+                            }
+
+                            error("Dry-run deployment validation failed due to missing metadata or other issues.")
+                        }
 
                         echo "📊 Deployment Summary:"
                         echo "🔢 numberComponentsTotal: ${result.numberComponentsTotal}"
