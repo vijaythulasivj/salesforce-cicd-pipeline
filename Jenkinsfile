@@ -488,7 +488,7 @@ pipeline {
                             script: """
                                 ${env.SFDX_CMD} force:mdapi:deploy ^
                                     --zipfile destructiveDeployment.zip ^
-                                    --targetusername %ALIAS% ^
+                                    --targetusername  %ALIAS%^
                                     --wait 20 ^
                                     --checkonly ^
                                     --json ^
@@ -547,7 +547,7 @@ pipeline {
         
                         bat """
                             ${env.SF_CMD} project deploy start ^
-                            --target-org **** ^
+                            --target-org %ALIAS% ^
                             --post-destructive-changes destructive\\destructiveChanges.xml ^
                             --manifest destructive\\package.xml ^
                             --ignore-warnings ^
