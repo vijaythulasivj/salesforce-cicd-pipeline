@@ -146,7 +146,6 @@ pipeline {
                 bat '"C:\\Program Files\\sf\\bin\\sf.cmd" project deploy start --source-dir force-app/main/default/classes/ASKYTightestMatchServiceImpl.cls --target-org myAlias --wait 10'
             }
         }
-
     }
 }
 
