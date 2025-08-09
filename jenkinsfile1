@@ -137,7 +137,7 @@ pipeline {
                 """
             }
         }
-        */
+        
         stage('Manual Redeploy Deleted Metadata') {
             steps {
                 echo "Redeploying from local source (Git)..."
@@ -150,6 +150,7 @@ pipeline {
                 """
             }
         }
+        */
     }
 }
 
