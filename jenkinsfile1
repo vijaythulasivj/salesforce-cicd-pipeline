@@ -78,7 +78,7 @@ pipeline {
                 """
             }
         }
-
+        /*
         stage('Execute Destructive Deployment') {
             steps {
                 echo "Executing destructive deployment..."
@@ -130,6 +130,7 @@ pipeline {
                 """
             }
         }
+        */
     }
 }
 
