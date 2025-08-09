@@ -137,20 +137,23 @@ pipeline {
                 """
             }
         }
+        */
         
         stage('Manual Redeploy Deleted Metadata') {
+            when {
+                expression { params.REDEPLOY == true } // assuming REDEPLOY is a boolean parameter
+            }
             steps {
-                echo "Redeploying from local source (Git)..."
+                echo "Redeploying ASKYTightestMatchServiceImpl.cls from local source..."
                 bat """
                     %SF_CMD% project deploy start ^
                         --target-org %ALIAS% ^
-                        --source-dir force-app\\main\\default\\classes ^
+                        --source-dir force-app\\main\\default\\classes\\ASKYTightestMatchServiceImpl.cls ^
                         --wait 10 ^
                         --json
                 """
             }
         }
-        */
     }
 }
 
