@@ -65,6 +65,71 @@ pipeline {
                 }
             }
         }
+        stage('Backup Metadata for Rollback') {
+            steps {
+                echo "Backing up metadata before destructive deployment..."
+                bat """
+                    %SF_CMD% project retrieve start ^
+                        --target-org %ALIAS% ^
+                        --manifest destructive\\package.xml ^
+                        --output-dir backup ^
+                        --wait 10 ^
+                        --json
+                """
+            }
+        }
+
+        stage('Execute Destructive Deployment') {
+            steps {
+                echo "Executing destructive deployment..."
+                bat """
+                    %SF_CMD% project deploy start ^
+                        --target-org %ALIAS% ^
+                        --manifest destructive\\package.xml ^
+                        --post-destructive-changes destructive\\destructiveChanges.xml ^
+                        --wait 20 ^
+                        --ignore-conflicts ^
+                        --json
+                """
+            }
+        }
+
+        stage('Rollback Metadata') {
+            when {
+                expression {
+                    // You could control this with a flag if rollback should be conditional
+                    return true
+                }
+            }
+            steps {
+                echo "Rolling back (re-deploying backed-up metadata)..."
+                bat """
+                    %SF_CMD% project deploy start ^
+                        --target-org %ALIAS% ^
+                        --source-path backup ^
+                        --wait 20 ^
+                        --ignore-conflicts ^
+                        --json
+                """
+            }
+        }
+
+        stage('Redeploy Metadata (Manual Trigger)') {
+            when {
+                expression { return params.REDEPLOY_METADATA }
+            }
+            steps {
+                echo "Redeploying previously deleted metadata..."
+                bat """
+                    %SF_CMD% project deploy start ^
+                        --target-org %ALIAS% ^
+                        --source-path backup ^
+                        --wait 20 ^
+                        --ignore-conflicts ^
+                        --json
+                """
+            }
+        }
     }
 }
 
