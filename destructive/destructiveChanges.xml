@@ -3,6 +3,7 @@
 	<types>
 		<name>ApexClass</name>
 		<members>ASKYTightestMatchServiceImplTest</members>	
+		<members>ASKYTightestMatchServiceImpl</members>
 	</types>	
 	<version>56.0</version>
 </Package>
