@@ -131,6 +131,18 @@ pipeline {
             }
         }
         */
+        stage('Manual Redeploy Deleted Metadata') {
+            steps {
+                echo "Redeploying from local source (Git)..."
+                bat """
+                    %SF_CMD% project deploy start ^
+                        --target-org %ALIAS% ^
+                        --source-dir force-app\\main\\default\\classes ^
+                        --wait 10 ^
+                        --json
+                """
+            }
+        }
     }
 }
 
