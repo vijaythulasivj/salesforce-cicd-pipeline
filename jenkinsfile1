@@ -32,7 +32,7 @@ pipeline {
                 }
             }
         }
-        /*
+        
         stage('Validate Destructive Deployment') {
             when {
                 expression { return !params.REDEPLOY_METADATA }
@@ -140,13 +140,14 @@ pipeline {
                 """
             }
         }
-        */
+        /*
         stage('Deploy ASKYTightestMatchServiceImpl Apex Class') {
             steps {
                 echo 'Deploying ASKYTightestMatchServiceImpl.cls to Salesforce org...'
                 bat '"C:\\Program Files\\sf\\bin\\sf.cmd" project deploy start --source-dir force-app/main/default/classes/ASKYTightestMatchServiceImpl.cls --target-org myAlias --wait 10'
             }
         }
+        */
     }
 }
 
