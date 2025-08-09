@@ -35,9 +35,7 @@ pipeline {
 
         stage('Validate Destructive Deployment') {
             steps {
-                script {
-                    // ... your existing parsing scripts ...
-        
+                script {        
                     timeout(time: 20, unit: 'MINUTES') {
                         def deployStatus = bat(
                             script: """
@@ -55,14 +53,14 @@ pipeline {
         
                         def deployJson = readJSON file: 'deploy-result.json'
                         if (deployStatus != 0 || deployJson.status != 0 || !deployJson.result?.success) {
-                            error "❌ Dry-run deployment failed: ${deployJson.message ?: 'Unknown error'}"
+                            error "Dry-run deployment failed: ${deployJson.message ?: 'Unknown error'}"
                         }
         
-                        echo "📊 Deployment Summary:"
-                        echo "✔️ Total Components: ${deployJson.result.numberComponentsTotal}"
-                        echo "✔️ Deployed: ${deployJson.result.numberComponentsDeployed}"
-                        echo "❌ Errors: ${deployJson.result.numberComponentErrors}"
-                        echo "📦 Status: ${deployJson.result.status}"
+                        echo "Deployment Summary:"
+                        echo "Total Components: ${deployJson.result.numberComponentsTotal}"
+                        echo "Deployed: ${deployJson.result.numberComponentsDeployed}"
+                        echo "Errors: ${deployJson.result.numberComponentErrors}"
+                        echo "Status: ${deployJson.result.status}"
                     }
                 }
             }
