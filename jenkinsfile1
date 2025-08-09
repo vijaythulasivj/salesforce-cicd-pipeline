@@ -85,7 +85,7 @@ pipeline {
                 """
             }
         }
-        /*
+        
         stage('Execute Destructive Deployment') {
             steps {
                 echo "Executing destructive deployment..."
@@ -133,23 +133,6 @@ pipeline {
                         --source-path backup ^
                         --wait 20 ^
                         --ignore-conflicts ^
-                        --json
-                """
-            }
-        }
-        */
-        
-        stage('Manual Redeploy Deleted Metadata') {
-            when {
-                expression { params.REDEPLOY == true } // assuming REDEPLOY is a boolean parameter
-            }
-            steps {
-                echo "Redeploying ASKYTightestMatchServiceImpl.cls from local source..."
-                bat """
-                    %SF_CMD% project deploy start ^
-                        --target-org %ALIAS% ^
-                        --source-dir force-app\\main\\default\\classes\\ASKYTightestMatchServiceImpl.cls ^
-                        --wait 10 ^
                         --json
                 """
             }
