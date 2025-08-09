@@ -87,6 +87,9 @@ pipeline {
         }
         
         stage('Execute Destructive Deployment') {
+            when {
+                expression { return !params.REDEPLOY }
+            }
             steps {
                 echo "Executing destructive deployment..."
                 bat """
@@ -130,7 +133,7 @@ pipeline {
                 bat """
                     %SF_CMD% project deploy start ^
                         --target-org %ALIAS% ^
-                        --source-path backup ^
+                        --source-dir backup ^
                         --wait 20 ^
                         --ignore-conflicts ^
                         --json
