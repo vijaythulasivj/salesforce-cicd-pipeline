@@ -97,22 +97,22 @@ pipeline {
         stage('Rollback Metadata') {
             when {
                 expression {
-                    // You could control this with a flag if rollback should be conditional
-                    return true
+                    return currentBuild.result == 'FAILURE' // only rollback on failure
                 }
             }
             steps {
-                echo "Rolling back (re-deploying backed-up metadata)..."
+                echo "Rolling back..."
                 bat """
                     %SF_CMD% project deploy start ^
                         --target-org %ALIAS% ^
-                        --source-path backup ^
+                        --metadata-dir backup ^
                         --wait 20 ^
                         --ignore-conflicts ^
                         --json
                 """
             }
         }
+
 
         stage('Redeploy Metadata (Manual Trigger)') {
             when {
