@@ -34,6 +34,9 @@ pipeline {
         }
 
         stage('Validate Destructive Deployment') {
+            when {
+                expression { return !params.REDEPLOY }
+            }
             steps {
                 script {        
                     timeout(time: 20, unit: 'MINUTES') {
@@ -65,7 +68,11 @@ pipeline {
                 }
             }
         }
+
         stage('Backup Metadata for Rollback') {
+            when {
+                expression { return !params.REDEPLOY }
+            }
             steps {
                 echo "Backing up metadata before destructive deployment..."
                 bat """
